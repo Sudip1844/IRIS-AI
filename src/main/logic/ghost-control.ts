@@ -4,6 +4,7 @@ import screenshot from 'screenshot-desktop'
 import loudness from 'loudness'
 import path from 'path'
 import { exec } from 'child_process'
+import { classifyCommand, approve } from '../security/SecurityGateway'
 
 keyboard.config.autoDelayMs = 20
 
@@ -87,8 +88,14 @@ function generateHumanPath(start: Point, end: Point): Point[] {
 
 export default function registerGhostControl(ipcMain: IpcMain) {
   ipcMain.handle('copy-file-to-clipboard', async (_event, filePath: string) => {
+    const cmd = `powershell -command "Set-Clipboard -Path '${filePath}'"`
+
+    // ── SecurityGateway: classify and approve ──
+    const verdict = classifyCommand(cmd)
+    const allowed = await approve(verdict, `Copy file to clipboard: ${filePath}`)
+    if (!allowed) return false
+
     return new Promise((resolve) => {
-      const cmd = `powershell -command "Set-Clipboard -Path '${filePath}'"`
       exec(cmd, (error) => {
         if (error) {
           resolve(false)

@@ -69,6 +69,11 @@ let isOverlayMode = false
 
 const secureConfigPath = join(app.getPath('userData'), 'iris_secure_vault.json')
 
+// ── UI Mode ──────────────────────────────────────────────────────────
+// Set to true to use the custom MJ Control Center static UI.
+// Set to false to use the original React/Tailwind renderer.
+const USE_CUSTOM_UI = true
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -103,7 +108,11 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (USE_CUSTOM_UI) {
+    // Load the MJ Control Center static UI
+    const staticUIPath = join(app.getAppPath(), 'static ui', 'index.html')
+    mainWindow.loadFile(staticUIPath)
+  } else if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))

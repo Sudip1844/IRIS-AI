@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MJ Control Center</title>
+    <meta name="description" content="MJ Personal AI Assistant - Next-generation local AI control system.">
+    <link rel="stylesheet" href="./assets/index.css">
+    <link rel="stylesheet" href="./assets/custom.css">
+</head>
+<body>
+<div id="root">
+<div class="h-screen flex transition-colors duration-300 bg-background text-foreground overflow-hidden">
+
+<!-- ===== SIDEBAR ===== -->
+<aside id="sidebar" class="border-r py-4 md:py-6 px-2 md:px-4 flex flex-col gap-4 md:gap-8 transition-all duration-300 h-full w-16 md:w-20 border-border bg-card/50 backdrop-blur-sm">
+    <div class="flex items-center justify-start">
+        <button id="sidebar-toggle" class="p-2 hover:bg-accent rounded-xl text-primary transition-colors" title="Toggle Sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg>
+        </button>
+    </div>
+
+    <nav class="flex flex-col gap-1 flex-1">
+        <button class="sidebar-item active" data-tab="chat" title="Chat">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></svg>
+            <span class="sidebar-label">Chat</span>
+        </button>
+        <button class="sidebar-item" data-tab="subagents" title="Sub Agents">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            <span class="sidebar-label">Sub Agents</span>
+        </button>
+        <button class="sidebar-item" data-tab="monitor" title="Monitor">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
+            <span class="sidebar-label">Monitor</span>
+        </button>
+        <button class="sidebar-item" data-tab="visualizer" title="Visualizer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <span class="sidebar-label">Visualizer</span>
+        </button>
+        <button class="sidebar-item" data-tab="alerts" title="Alerts">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+            <span class="sidebar-label">Alerts</span>
+        </button>
+        <button class="sidebar-item" data-tab="privacy" title="Privacy">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+            <span class="sidebar-label">Privacy</span>
+        </button>
+        <button class="sidebar-item" data-tab="apps" title="Apps">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+            <span class="sidebar-label">Apps</span>
+        </button>
+        <button class="sidebar-item" data-tab="settings" title="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+            <span class="sidebar-label">Settings</span>
+        </button>
+    </nav>
+
+    <div class="pt-6 border-t border-white/10">
+        <button id="theme-toggle" class="w-full flex items-center gap-3 px-2 py-3 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-accent justify-start" title="Toggle Theme">
+            <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            <span class="sidebar-label">Theme</span>
+        </button>
+    </div>
+</aside>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="h-16 md:h-20 border-b px-4 md:px-8 flex items-center justify-between transition-all duration-300 border-border bg-card/50 backdrop-blur-sm">
+        <div class="flex items-center gap-2 md:gap-6 overflow-hidden">
+            <!-- MJ Logo -->
+            <div class="relative flex items-center justify-center scale-75 md:scale-100">
+                <div class="relative w-10 h-10 rounded-xl bg-[#020617] border border-cyan-500/40 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)] overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-blue-500/10"></div>
+                    <svg viewBox="0 0 100 100" class="w-7 h-7 relative z-10">
+                        <defs>
+                            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#22d3ee"/>
+                                <stop offset="100%" stop-color="#0ea5e9"/>
+                            </linearGradient>
+                            <filter id="glow"><feGaussianBlur stdDeviation="2" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                        </defs>
+                        <path d="M20 75 V25 L50 50 L80 25 V75" fill="none" stroke="url(#logoGradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+                        <path d="M35 70 C35 85 65 85 65 70 V35" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)" opacity="0.9"/>
+                    </svg>
+                    <div class="absolute inset-0 bg-cyan-400/5 logo-pulse"></div>
+                </div>
+            </div>
+            <div class="flex flex-col min-w-0">
+                <span id="core-status" class="text-[8px] md:text-sm font-bold uppercase tracking-widest truncate text-rose-500">○ Core Offline</span>
+                <span id="voice-status" class="text-[8px] md:text-xs opacity-50 truncate">Voice: Standby</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 md:gap-4">
+            <button id="power-btn" class="flex items-center gap-2 px-3 py-1.5 md:px-6 md:py-2.5 rounded-full font-bold text-[10px] md:text-sm transition-all active:scale-95 bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-[18px] md:h-[18px]"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+                <span>START MJ</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Tab Content Area -->
+    <div class="flex-1 overflow-hidden p-4 md:p-8 relative">
+
+        <!-- ===== TAB: CHAT ===== -->
+        <div id="tab-chat" class="tab-content active h-full flex flex-col gap-4 w-full max-w-5xl mx-auto overflow-hidden">
+            <div id="chat-messages" class="flex-1 overflow-y-auto space-y-6 pb-4 pr-2 scrollbar-thin scrollbar-thumb-scrollbar">
+                <!-- System init message -->
+                <div class="flex flex-col gap-2 items-start">
+                    <div class="flex items-center gap-2 px-2"></div>
+                    <div class="max-w-[90%] md:max-w-[85%] rounded-2xl p-3 md:p-4 text-xs md:text-sm leading-relaxed shadow-sm transition-colors duration-200 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 w-full text-center italic">
+                        <div class="prose prose-sm max-w-none"><p>MJ Control Center Initialized. Language: English.</p></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Chat Input -->
+            <div class="sticky bottom-0 pt-4">
+                <div id="image-preview" class="mb-3 hidden items-center gap-2 p-2 bg-card rounded-xl border border-border w-fit shadow-lg">
+                    <img id="preview-img" src="" alt="Preview" class="w-12 h-12 object-cover rounded-lg">
+                    <button id="remove-image" class="p-1 hover:bg-black/5 rounded-full text-rose-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+                    </button>
+                </div>
+                <div class="flex items-end gap-2 p-1.5 md:p-2 rounded-2xl border transition-all focus-within:ring-4 focus-within:ring-primary/10 bg-card border-border shadow-lg">
+                    <button id="attach-btn" class="p-2 md:p-3 hover:bg-accent rounded-xl text-muted-foreground transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-5 md:h-5"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>
+                    </button>
+                    <input type="file" id="file-input" hidden accept="image/*">
+                    <textarea id="chat-input" placeholder="Type your message here..." class="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 text-sm max-h-32 outline-none" rows="1"></textarea>
+                    <button id="send-btn" disabled class="p-2 md:p-3 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 disabled:opacity-50 transition-all active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-5 md:h-5"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TAB: SUB AGENTS ===== -->
+        <div id="tab-subagents" class="tab-content h-full flex flex-col gap-4 w-full max-w-5xl mx-auto overflow-hidden" style="display:none">
+            <div class="flex items-center justify-between bg-card p-4 rounded-2xl border border-border shadow-sm">
+                <div class="flex items-center gap-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                    <div class="flex flex-col">
+                        <h2 class="text-lg font-bold">Sub Agents</h2>
+                        <span class="text-xs text-muted-foreground">Manage and chat with external AI models</span>
+                    </div>
+                </div>
+                <div class="flex items-center bg-background border border-border rounded-xl overflow-hidden">
+                    <select id="agent-select" class="appearance-none bg-transparent px-4 py-2 pr-8 text-sm font-medium focus:outline-none cursor-pointer">
+                        <option value="1">Default Anthropic (anthropic)</option>
+                        <option value="2">Default OpenAI (openai)</option>
+                    </select>
+                    <div class="w-px h-6 bg-border"></div>
+                    <button id="add-agent-btn" class="px-3 py-2 text-primary hover:bg-primary/10 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="subagent-messages" class="flex-1 overflow-y-auto space-y-6 pb-4 pr-2 bg-card/30 rounded-2xl border border-border/50 p-4">
+                <div class="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 space-y-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                    <p>Select a Sub Agent to start chatting.</p>
+                    <p class="text-xs">Messages sent here will be routed to the selected provider's API.</p>
+                </div>
+            </div>
+            <div class="sticky bottom-0 pt-2">
+                <div class="flex items-end gap-2 p-1.5 md:p-2 rounded-2xl border transition-all focus-within:ring-4 focus-within:ring-primary/10 bg-card border-border shadow-lg">
+                    <textarea id="subagent-input" placeholder="Message Default Anthropic..." class="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-4 text-sm max-h-32 outline-none" rows="1"></textarea>
+                    <button id="subagent-send" disabled class="p-2 md:p-3 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 disabled:opacity-50 transition-all active:scale-95">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-5 md:h-5"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TAB: MONITOR ===== -->
+        <div id="tab-monitor" class="tab-content h-full overflow-y-auto max-w-6xl mx-auto space-y-8 pr-2" style="display:none">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm hover:shadow-md transition-all">
+                    <div class="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                        <div class="p-1.5 md:p-2 rounded-lg md:rounded-xl bg-black/5 text-blue-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-5 md:h-5"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
+                        </div>
+                        <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-50">CPU Usage</span>
+                    </div>
+                    <div id="cpu-value" class="text-xl md:text-3xl font-bold tracking-tight">0%</div>
+                    <div class="mt-3 md:mt-4 h-1 md:h-1.5 w-full rounded-full overflow-hidden bg-black/5">
+                        <div id="cpu-bar" class="h-full rounded-full bg-blue-500 transition-all duration-500" style="width:0%"></div>
+                    </div>
+                </div>
+                <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm hover:shadow-md transition-all">
+                    <div class="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                        <div class="p-1.5 md:p-2 rounded-lg md:rounded-xl bg-black/5 text-rose-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-5 md:h-5"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
+                        </div>
+                        <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-50">RAM Usage</span>
+                    </div>
+                    <div id="ram-value" class="text-xl md:text-3xl font-bold tracking-tight">0%</div>
+                    <div class="mt-3 md:mt-4 h-1 md:h-1.5 w-full rounded-full overflow-hidden bg-black/5">
+                        <div id="ram-bar" class="h-full rounded-full bg-rose-500 transition-all duration-500" style="width:0%"></div>
+                    </div>
+                    <div class="mt-2 flex justify-between text-[9px] md:text-[10px] font-bold opacity-50 uppercase tracking-tighter">
+                        <span id="ram-used">0GB</span><span>16GB</span>
+                    </div>
+                </div>
+                <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm hover:shadow-md transition-all">
+                    <div class="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                        <div class="p-1.5 md:p-2 rounded-lg md:rounded-xl bg-black/5 text-amber-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-5 md:h-5"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>
+                        </div>
+                        <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-50">Disk Space</span>
+                    </div>
+                    <div class="text-xl md:text-3xl font-bold tracking-tight">45%</div>
+                    <div class="mt-3 md:mt-4 h-1 md:h-1.5 w-full rounded-full overflow-hidden bg-black/5">
+                        <div class="h-full rounded-full bg-amber-500" style="width:45%"></div>
+                    </div>
+                    <div class="mt-2 flex justify-between text-[9px] md:text-[10px] font-bold opacity-50 uppercase tracking-tighter">
+                        <span>225GB</span><span>500GB</span>
+                    </div>
+                </div>
+                <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm hover:shadow-md transition-all">
+                    <div class="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                        <div class="p-1.5 md:p-2 rounded-lg md:rounded-xl bg-black/5 text-emerald-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-5 md:h-5"><rect width="16" height="10" x="2" y="7" rx="2" ry="2"/><line x1="22" x2="22" y1="11" y2="13"/></svg>
+                        </div>
+                        <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-50">Battery</span>
+                    </div>
+                    <div class="text-xl md:text-3xl font-bold tracking-tight">85%</div>
+                    <div class="mt-3 md:mt-4 h-1 md:h-1.5 w-full rounded-full overflow-hidden bg-black/5">
+                        <div class="h-full rounded-full bg-emerald-500" style="width:85%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processes & Health -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 p-8 rounded-3xl border bg-card border-border shadow-sm">
+                    <div class="flex items-center justify-between mb-8">
+                        <h3 class="text-xl font-bold flex items-center gap-2">
+                            <svg id="process-spinner" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                            Active Processes
+                        </h3>
+                        <div class="flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest">
+                            <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span></span>
+                            Live Feed
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="grid grid-cols-4 text-[8px] md:text-[10px] uppercase tracking-widest font-bold opacity-30 px-2 mb-4">
+                            <span>Process</span><span>PID</span><span>CPU</span><span>Memory</span>
+                        </div>
+                        <div id="process-core" class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent">
+                            <span class="font-bold truncate">MJ_Core.exe</span><span class="opacity-50">4829</span><span>12.4%</span><span class="truncate">452MB</span>
+                        </div>
+                        <div id="process-brain" class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent">
+                            <span class="font-bold truncate">Brain_Engine</span><span class="opacity-50">1022</span><span>4.2%</span><span class="truncate">1.2GB</span>
+                        </div>
+                        <div id="process-voice" class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent">
+                            <span class="font-bold truncate">Voice_STT</span><span class="opacity-50">9921</span><span>0.1%</span><span class="truncate">89MB</span>
+                        </div>
+                        <div class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm bg-primary/10 text-primary">
+                            <span class="font-bold truncate">System_UI</span><span class="opacity-50">3312</span><span class="text-emerald-500">1.8%</span><span class="truncate">210MB</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-8 rounded-3xl border bg-card border-border shadow-sm space-y-6">
+                    <h3 class="text-xl font-bold">System Health</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+                            <div class="flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                                <span class="text-sm font-medium">Security Engine</span>
+                            </div>
+                            <span class="text-[10px] font-bold text-emerald-500">OPTIMAL</span>
+                        </div>
+                        <div class="flex items-center justify-between p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10">
+                            <div class="flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                                <span class="text-sm font-medium">Auto-Update</span>
+                            </div>
+                            <span class="text-[10px] font-bold text-blue-500">SYNCED</span>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-2">
+                            <div class="flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                                <span class="text-sm font-medium">Memory Usage</span>
+                            </div>
+                            <p class="text-[10px] opacity-60 leading-relaxed">System memory is at 62%. Consider closing unused background tasks for better performance.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quarantine -->
+            <div class="p-4 md:p-8 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm">
+                <div class="flex items-center justify-between mb-4 md:mb-8">
+                    <h3 class="text-lg md:text-xl font-bold flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rose-500 md:w-6 md:h-6"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                        Quarantine Zone
+                    </h3>
+                    <div class="flex items-center gap-2 px-2 py-0.5 md:px-3 md:py-1 bg-rose-500/10 text-rose-500 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-3 md:h-3"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        Isolated
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
+                    <div class="p-3 md:p-4 rounded-xl md:rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col gap-2 md:gap-3 group hover:bg-rose-500/10 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2 md:gap-3 min-w-0">
+                                <div class="p-1.5 md:p-2 rounded-lg bg-rose-500/20 text-rose-500 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-[18px] md:h-[18px]"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                                </div>
+                                <div class="min-w-0"><p class="text-xs md:text-sm font-bold truncate">Trojan.Win32.Generic</p><p class="text-[8px] md:text-[10px] opacity-50 truncate">2.4 MB • 2024-03-20</p></div>
+                            </div>
+                            <span class="text-[7px] md:text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-500 shrink-0">High</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-1 md:mt-2">
+                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider bg-rose-500 text-white rounded-lg hover:opacity-90 transition-opacity">Delete</button>
+                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider border border-rose-500/20 text-rose-500 rounded-lg hover:bg-rose-500/5 transition-colors">Restore</button>
+                        </div>
+                    </div>
+                    <div class="p-3 md:p-4 rounded-xl md:rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col gap-2 md:gap-3 group hover:bg-rose-500/10 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2 md:gap-3 min-w-0">
+                                <div class="p-1.5 md:p-2 rounded-lg bg-rose-500/20 text-rose-500 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-[18px] md:h-[18px]"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                                </div>
+                                <div class="min-w-0"><p class="text-xs md:text-sm font-bold truncate">Malware_Sample_01.exe</p><p class="text-[8px] md:text-[10px] opacity-50 truncate">850 KB • 2024-03-22</p></div>
+                            </div>
+                            <span class="text-[7px] md:text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white shrink-0">Critical</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-1 md:mt-2">
+                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider bg-rose-500 text-white rounded-lg hover:opacity-90 transition-opacity">Delete</button>
+                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider border border-rose-500/20 text-rose-500 rounded-lg hover:bg-rose-500/5 transition-colors">Restore</button>
+                        </div>
+                    </div>
+                    <div class="p-3 md:p-4 rounded-xl md:rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col gap-2 md:gap-3 group hover:bg-rose-500/10 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2 md:gap-3 min-w-0">
+                                <div class="p-1.5 md:p-2 rounded-lg bg-rose-500/20 text-rose-500 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-[18px] md:h-[18px]"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                                </div>
+                                <div class="min-w-0"><p class="text-xs md:text-sm font-bold truncate">Spyware.Agent.B</p><p class="text-[8px] md:text-[10px] opacity-50 truncate">1.2 MB • 2024-03-25</p></div>
+                            </div>
+                            <span class="text-[7px] md:text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-500 shrink-0">Medium</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-1 md:mt-2">
+                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider bg-rose-500 text-white rounded-lg hover:opacity-90 transition-opacity">Delete</button>
+                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider border border-rose-500/20 text-rose-500 rounded-lg hover:bg-rose-500/5 transition-colors">Restore</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TAB: VISUALIZER ===== -->
+        <div id="tab-visualizer" class="tab-content h-full overflow-y-auto max-w-4xl mx-auto space-y-8 pr-2" style="display:none">
+            <div class="space-y-2">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    Assistant Visualizers
+                </h2>
+                <p class="text-sm text-muted-foreground">Select the animation style for MJ's voice assistant mode.</p>
+            </div>
+            <div id="visualizer-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                <button class="viz-btn active-viz p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" data-viz="pulse">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-white/20">⭕</div>
+                    <div><div class="font-bold text-xs md:text-sm">Pulse Orb</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-white/70">A glowing orb that pulses with voice activity.</div></div>
+                </button>
+                <button class="viz-btn p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-card border-border hover:border-primary/50" data-viz="wave">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-accent">🌊</div>
+                    <div><div class="font-bold text-xs md:text-sm">Sonic Wave</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-muted-foreground">Dynamic waves that react to sound frequencies.</div></div>
+                </button>
+                <button class="viz-btn p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-card border-border hover:border-primary/50" data-viz="bars">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-accent">📊</div>
+                    <div><div class="font-bold text-xs md:text-sm">Frequency Bars</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-muted-foreground">Classic equalizer bars for audio visualization.</div></div>
+                </button>
+                <button class="viz-btn p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-card border-border hover:border-primary/50" data-viz="liquid">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-accent">💧</div>
+                    <div><div class="font-bold text-xs md:text-sm">Liquid Sphere</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-muted-foreground">An organic, morphing sphere of fluid energy.</div></div>
+                </button>
+                <button class="viz-btn p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-card border-border hover:border-primary/50" data-viz="aura">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-accent">🌈</div>
+                    <div><div class="font-bold text-xs md:text-sm">Aura Glow</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-muted-foreground">A soft, breathing aura of shifting gradients.</div></div>
+                </button>
+                <button class="viz-btn p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-card border-border hover:border-primary/50" data-viz="orbit">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-accent">🛰️</div>
+                    <div><div class="font-bold text-xs md:text-sm">Orbiting Satellites</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-muted-foreground">Blinking data points orbiting a central core.</div></div>
+                </button>
+                <button class="viz-btn p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-card border-border hover:border-primary/50" data-viz="vortex">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-accent">🌀</div>
+                    <div><div class="font-bold text-xs md:text-sm">Vortex</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-muted-foreground">A swirling kinesis of light pulling inward.</div></div>
+                </button>
+                <button class="viz-btn p-4 md:p-6 rounded-2xl md:rounded-3xl border transition-all text-left flex flex-col gap-3 md:gap-4 group bg-card border-border hover:border-primary/50" data-viz="cyber">
+                    <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-xl md:text-2xl bg-accent">⚡</div>
+                    <div><div class="font-bold text-xs md:text-sm">Cyber Pulse</div><div class="text-[9px] md:text-[10px] mt-1 line-clamp-2 text-muted-foreground">A neon heartbeat line reacting to voice input.</div></div>
+                </button>
+            </div>
+            <div class="p-8 rounded-3xl border bg-card border-border shadow-sm flex flex-col items-center justify-center gap-8 min-h-[300px] relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
+                <h3 class="text-lg font-bold z-10">Live Preview</h3>
+                <div id="viz-preview" class="z-10">
+                    <div class="viz-pulse relative w-12 h-12 flex items-center justify-center">
+                        <div class="absolute w-full h-full bg-primary rounded-full animate-pulse-scale"></div>
+                        <div class="w-6 h-6 bg-primary rounded-full shadow-lg shadow-primary/50"></div>
+                    </div>
+                </div>
+                <p class="text-xs text-muted-foreground z-10 text-center max-w-md">This animation will appear at the top of your screen whenever MJ is speaking or processing your voice commands.</p>
+            </div>
+        </div>
+
+        <!-- ===== TAB: ALERTS ===== -->
+        <div id="tab-alerts" class="tab-content h-full overflow-y-auto max-w-4xl mx-auto space-y-6 pr-2" style="display:none">
+            <div class="flex items-center justify-between">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rose-500"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+                    Notifications &amp; Alerts
+                </h2>
+            </div>
+            <div id="alerts-list" class="space-y-4">
+                <div class="p-12 text-center border-2 border-dashed border-border rounded-3xl opacity-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-20"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+                    <p class="text-sm font-medium">No active alerts or notifications.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TAB: PRIVACY ===== -->
+        <div id="tab-privacy" class="tab-content h-full overflow-y-auto max-w-4xl mx-auto space-y-8 pr-2" style="display:none">
+            <div class="space-y-2">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+                    Privacy &amp; Security
+                </h2>
+                <p class="text-sm text-muted-foreground">Manage your data and system access permissions.</p>
+            </div>
+            <div class="space-y-8">
+                <div class="p-6 rounded-3xl border bg-card border-border shadow-sm space-y-6">
+                    <h3 class="text-lg font-bold">Permissions</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="flex items-center justify-between p-4 rounded-2xl bg-background border border-border hover:bg-accent transition-colors">
+                            <div class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><path d="m12 1 9.5 5.5v11L12 23l-9.5-5.5v-11z"/><path d="M12 12V1"/><path d="m12 12 9.5-5.5"/><path d="M12 12-9.5-5.5"/></svg><span class="text-sm font-medium">Microphone</span></div>
+                            <button class="toggle-btn w-12 h-6 rounded-full p-1 transition-colors duration-200 bg-emerald-500" data-active="true"><div class="w-4 h-4 bg-white rounded-full transition-transform duration-200 translate-x-6"></div></button>
+                        </div>
+                        <div class="flex items-center justify-between p-4 rounded-2xl bg-background border border-border hover:bg-accent transition-colors">
+                            <div class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span class="text-sm font-medium">Screen Reading</span></div>
+                            <button class="toggle-btn w-12 h-6 rounded-full p-1 transition-colors duration-200 bg-emerald-500" data-active="true"><div class="w-4 h-4 bg-white rounded-full transition-transform duration-200 translate-x-6"></div></button>
+                        </div>
+                        <div class="flex items-center justify-between p-4 rounded-2xl bg-background border border-border hover:bg-accent transition-colors">
+                            <div class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg><span class="text-sm font-medium">Voice Output</span></div>
+                            <button class="toggle-btn w-12 h-6 rounded-full p-1 transition-colors duration-200 bg-emerald-500" data-active="true"><div class="w-4 h-4 bg-white rounded-full transition-transform duration-200 translate-x-6"></div></button>
+                        </div>
+                        <div class="flex items-center justify-between p-4 rounded-2xl bg-background border border-border hover:bg-accent transition-colors">
+                            <div class="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg><span class="text-sm font-medium">Camera Access</span></div>
+                            <button class="toggle-btn w-12 h-6 rounded-full p-1 transition-colors duration-200 bg-emerald-500" data-active="true"><div class="w-4 h-4 bg-white rounded-full transition-transform duration-200 translate-x-6"></div></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6 rounded-3xl border bg-card border-border shadow-sm space-y-6">
+                    <h3 class="text-lg font-bold">Security Status</h3>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl bg-background border border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Firewall</span><span class="text-sm font-bold text-emerald-500">ACTIVE</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl bg-background border border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Encryption</span><span class="text-sm font-bold text-blue-500">AES-256</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl bg-background border border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Last Scan</span><span class="text-sm font-bold text-slate-500">2h ago</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl bg-background border border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Threats</span><span class="text-sm font-bold text-emerald-500">None</span></div>
+                    </div>
+                    <button class="w-full py-3 bg-emerald-500/10 text-emerald-500 font-bold rounded-2xl border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-sm">RUN FULL SYSTEM SCAN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TAB: APPS ===== -->
+        <div id="tab-apps" class="tab-content h-full overflow-y-auto max-w-4xl mx-auto space-y-6 pr-2" style="display:none">
+            <div class="flex items-center justify-between">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+                    Application Access
+                </h2>
+                <div class="flex items-center gap-4">
+                    <button id="scan-btn" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-500/20">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                        Scan System
+                    </button>
+                    <div class="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        <input id="app-search" type="text" placeholder="Search apps..." class="pl-10 pr-4 py-2 bg-card border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none w-64">
+                    </div>
+                </div>
+            </div>
+            <div id="apps-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                <!-- Apps are hardcoded below -->
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Google Chrome">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/googlechrome" alt="Google Chrome" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Google Chrome</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Visual Studio Code">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/visualstudiocode" alt="VS Code" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Visual Studio Code</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Spotify">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/spotify" alt="Spotify" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Spotify</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-rose-500/10 text-rose-500" data-allowed="false">Denied</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Discord">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/discord" alt="Discord" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Discord</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Terminal">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/gnumetaterminal" alt="Terminal" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Terminal</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Telegram">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/telegram" alt="Telegram" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Telegram</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Docker">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/docker" alt="Docker" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Docker</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="Figma">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/figma" alt="Figma" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">Figma</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+                <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="GitHub Desktop">
+                    <div class="flex items-center gap-2 md:gap-3"><div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center overflow-hidden"><img src="https://cdn.simpleicons.org/github" alt="GitHub" class="w-5 h-5 md:w-6 md:h-6 object-contain group-hover:scale-110 transition-transform" referrerpolicy="no-referrer"></div><span class="font-bold text-xs md:text-sm">GitHub Desktop</span></div>
+                    <button class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" data-allowed="true">Allowed</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TAB: SETTINGS ===== -->
+        <div id="tab-settings" class="tab-content h-full overflow-y-auto max-w-4xl mx-auto space-y-8 pr-2" style="display:none">
+            <div class="space-y-2">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+                    Settings &amp; Configuration
+                </h2>
+                <p class="text-sm text-muted-foreground">Manage system behavior, integrations, and about information.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <!-- Voice Config -->
+                <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm space-y-4">
+                    <h3 class="text-base md:text-lg font-bold flex items-center gap-2">🎤 Voice Configuration</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 p-2 md:p-3 rounded-xl bg-background border border-border">
+                            <span class="text-lg md:text-xl">🔤</span>
+                            <div class="flex flex-col"><span class="text-xs md:text-sm font-medium">Chat: English</span><span class="text-[10px] md:text-xs opacity-50">Supports: English (Primary)</span></div>
+                        </div>
+                        <div class="flex items-center gap-3 p-2 md:p-3 rounded-xl bg-background border border-border">
+                            <span class="text-lg md:text-xl">🎤</span>
+                            <div class="flex flex-col"><span class="text-xs md:text-sm font-medium">Voice: Auto-detect English</span><span class="text-[10px] md:text-xs opacity-50">Real-time processing</span></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-3 md:p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">🎤</div>
+                            <div class="flex flex-col"><span class="text-xs md:text-sm font-bold">Wake Word: "MJ"</span><span class="text-[10px] md:text-xs opacity-50">Say "MJ" to activate</span></div>
+                        </div>
+                        <span class="text-[8px] md:text-[10px] font-bold px-2 py-1 bg-primary text-white rounded-full">ACTIVE</span>
+                    </div>
+                </div>
+                <!-- General Settings -->
+                <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm space-y-4">
+                    <h3 class="text-base md:text-lg font-bold flex items-center gap-2">⚙️ General Settings</h3>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-background border border-border"><span class="text-xs font-bold opacity-50 uppercase">STT</span><span class="text-sm font-medium text-emerald-500">✓ Whisper (English)</span></div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-background border border-border"><span class="text-xs font-bold opacity-50 uppercase">STT Fallback</span><span class="text-sm font-medium text-emerald-500">✓ VOSK (English)</span></div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-background border border-border"><span class="text-xs font-bold opacity-50 uppercase">TTS</span><span class="text-sm font-medium text-emerald-500">✓ Piper (English Female)</span></div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-background border border-border"><span class="text-xs font-bold opacity-50 uppercase">TTS Fallback</span><span class="text-sm font-medium text-emerald-500">✓ pyttsx3</span></div>
+                    </div>
+                </div>
+                <!-- External Integrations -->
+                <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm space-y-4 md:space-y-6 md:col-span-2">
+                    <h3 class="text-base md:text-lg font-bold flex items-center gap-2">🔧 External Integrations</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                        <div class="space-y-4">
+                            <h4 class="text-xs md:text-sm font-bold flex items-center gap-2 opacity-70">🤖 Telegram Bot</h4>
+                            <div class="space-y-3">
+                                <div class="space-y-1"><label class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Bot Token</label><input type="password" class="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none opacity-70" placeholder="••••••••••••••••"></div>
+                                <div class="space-y-1"><label class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Chat ID</label><input type="text" class="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none opacity-70" placeholder="123456789"></div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <h4 class="text-sm font-bold flex items-center gap-2 opacity-70">📧 Email Setup</h4>
+                            <div class="space-y-3">
+                                <div class="space-y-1"><label class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Email Address</label><input type="email" class="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none opacity-70" placeholder="user@gmail.com"></div>
+                                <div class="space-y-1"><label class="text-[10px] font-bold opacity-50 uppercase tracking-widest">App Password</label><input type="password" class="w-full bg-background border border-border rounded-xl px-4 py-2 text-sm outline-none opacity-70" placeholder="•••• •••• •••• ••••"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="w-full py-3 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all text-sm flex items-center justify-center gap-2">💾 SAVE ALL CONFIGURATIONS</button>
+                </div>
+                <!-- About -->
+                <div class="p-6 rounded-3xl border bg-card border-border shadow-sm space-y-6 md:col-span-2">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-xl shadow-primary/20"><span class="text-2xl font-bold text-white">MJ</span></div>
+                        <div><h3 class="text-xl font-bold">MJ Personal Assistant</h3><p class="text-sm text-muted-foreground">Next-generation local AI control system.</p></div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Version</span><span class="font-medium">2.0.0</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Brain</span><span class="font-medium">Gemini 3.1 Pro</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Voice In</span><span class="font-medium">Whisper Hybrid</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Voice Out</span><span class="font-medium">Piper TTS</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Memory</span><span class="font-medium">90-day Sync</span></div>
+                        <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Security</span><span class="font-medium">Active Defense</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end tab content area -->
+</main>
+
+</div><!-- end root flex -->
+</div><!-- end root -->
+
+<script src="./assets/app.js"></script>
+</body>
+</html>

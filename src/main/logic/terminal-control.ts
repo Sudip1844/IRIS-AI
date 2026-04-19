@@ -1,6 +1,7 @@
 import { IpcMain, BrowserWindow } from 'electron'
 import { spawn } from 'child_process'
 import path from 'path'
+import { classifyCommand, approve } from '../security/SecurityGateway'
 
 export default function registerSystemControl(ipcMain: IpcMain) {
 
@@ -11,6 +12,14 @@ export default function registerSystemControl(ipcMain: IpcMain) {
   }
 
   ipcMain.handle('run-shell-command', async (_event, { command, cwd }) => {
+
+    // ── SecurityGateway: classify and approve ──
+    const verdict = classifyCommand(command)
+    const allowed = await approve(verdict, `Run shell command: ${command}`)
+    if (!allowed) {
+      return { success: false, output: 'Action denied by SecurityGateway.' }
+    }
+
     return new Promise((resolve) => {
       const safeCwd = cwd ? sanitizePath(cwd) : undefined
 

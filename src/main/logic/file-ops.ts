@@ -1,8 +1,16 @@
 import { IpcMain } from 'electron'
 import fs from 'fs/promises'
+import { classifyFileOp, approve } from '../security/SecurityGateway'
 
 export default function registerFileOps(ipcMain: IpcMain) {
   ipcMain.handle('file-ops', async (_event, { operation, sourcePath, destPath }) => {
+
+    // ── SecurityGateway: classify and approve ──
+    const verdict = classifyFileOp(operation, sourcePath)
+    const allowed = await approve(verdict, `${operation} → ${sourcePath}`)
+    if (!allowed) {
+      return 'Action denied by SecurityGateway.'
+    }
 
     try {
       switch (operation) {
