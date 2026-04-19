@@ -12,6 +12,7 @@ import {
   PROTECTED_PATHS,
   HIGH_RISK_FILE_OPS
 } from './risk-rules'
+import { quarantineFile } from './quarantine-manager'
 
 export type RiskLevel = 'LOW' | 'HIGH' | 'BLOCKED'
 
@@ -126,18 +127,44 @@ export async function requestApproval(verdict: RiskVerdict, details: string): Pr
 /**
  * Main entry point used by IPC handlers.
  * Returns `true` if the action should proceed, `false` if denied / blocked.
+ *
+ * For BLOCKED file operations, offers quarantine instead of just blocking.
  */
-export async function approve(verdict: RiskVerdict, actionDescription: string): Promise<boolean> {
+export async function approve(
+  verdict: RiskVerdict,
+  actionDescription: string,
+  targetFilePath?: string
+): Promise<boolean> {
   if (verdict.level === 'LOW') return true
 
   if (verdict.level === 'BLOCKED') {
     const win = BrowserWindow.getAllWindows()[0] || null
-    dialog.showMessageBox(win!, {
-      type: 'error',
-      title: '🛑 Action Blocked',
-      message: 'This action is permanently blocked for your safety.',
-      detail: verdict.reason
-    })
+
+    // If there's a file path, offer quarantine option
+    if (targetFilePath) {
+      const result = await dialog.showMessageBox(win!, {
+        type: 'error',
+        title: '🛑 Action Blocked',
+        message: 'This action is blocked for your safety.',
+        detail: `${verdict.reason}\n\nYou can quarantine the target file for later review.`,
+        buttons: ['OK', '🔒 Quarantine File'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true
+      })
+
+      if (result.response === 1) {
+        // User chose to quarantine
+        quarantineFile(targetFilePath, verdict.reason, 'CRITICAL')
+      }
+    } else {
+      dialog.showMessageBox(win!, {
+        type: 'error',
+        title: '🛑 Action Blocked',
+        message: 'This action is permanently blocked for your safety.',
+        detail: verdict.reason
+      })
+    }
     return false
   }
 

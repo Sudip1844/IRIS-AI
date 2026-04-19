@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MJ Quick Chat</title>
+    <link rel="stylesheet" href="./assets/quick-chat.css">
+</head>
+<body>
+<div class="quick-chat-container">
+
+    <!-- Title Bar -->
+    <div class="qc-titlebar">
+        <div class="qc-titlebar-left">
+            <div class="qc-logo">
+                <svg viewBox="0 0 100 100">
+                    <defs>
+                        <linearGradient id="qcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#22d3ee"/>
+                            <stop offset="100%" stop-color="#0ea5e9"/>
+                        </linearGradient>
+                    </defs>
+                    <path d="M20 75 V25 L50 50 L80 25 V75" fill="none" stroke="url(#qcGrad)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div>
+                <div class="qc-title">MJ Quick Chat</div>
+                <div class="qc-subtitle">Ask anything...</div>
+            </div>
+        </div>
+        <button class="qc-close-btn" id="qc-close" title="Close (Ctrl+Shift+M)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Messages -->
+    <div class="qc-messages" id="qc-messages">
+        <div class="qc-welcome" id="qc-welcome">
+            <div class="qc-welcome-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/>
+                </svg>
+            </div>
+            <h3>Hey! I'm MJ</h3>
+            <p>Type a message below to start chatting. I'm ready to help!</p>
+            <div class="qc-shortcut-hint">
+                Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd> to toggle
+            </div>
+        </div>
+    </div>
+
+    <!-- Input -->
+    <div class="qc-input-area">
+        <div class="qc-input-wrapper">
+            <textarea id="qc-input" class="qc-input" placeholder="Type a message..." rows="1"></textarea>
+            <button id="qc-send" class="qc-send-btn" disabled title="Send">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
+                    <path d="m21.854 2.147-10.94 10.939"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+</div>
+<script src="./assets/quick-chat.js"></script>
+</body>
+</html>

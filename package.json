@@ -1,10 +1,9 @@
 {
-  "name": "iris-ai",
+  "name": "mj-assistant",
   "version": "1.0.1",
-  "description": "IRIS is not another chatbot you type at. It is an intelligent Voice-First Operating Layer that gives you complete, hands-free authority over your digital environment. It lives on your desktop, watches your workflow, and executes your intent instantly.",
+  "description": "MJ is an intelligent Voice-First Operating Layer that gives you complete, hands-free authority over your digital environment. It lives on your desktop, watches your workflow, and executes your intent instantly.",
   "main": "./out/main/index.js",
-  "author": "Harsh Pandey",
-  "homepage": "https://irisaiw.vercel.app",
+  "author": "Sudip",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -52,7 +51,6 @@
     "loudness": "^0.4.2",
     "lucide-react": "^0.575.0",
     "mammoth": "^1.11.0",
-    "node-window-manager": "^2.2.4",
     "pdf-parse": "^2.4.5",
     "prismjs": "^1.30.0",
     "puppeteer": "^24.37.3",

@@ -334,3 +334,36 @@ body.sidebar-expanded #theme-toggle {
 
 /* Text color for muted-foreground where Tailwind might not cover */
 .text-muted-foreground { color: var(--muted); }
+
+/* ===== Mic Toggle Button ===== */
+.mic-toggle {
+  position: relative;
+}
+.mic-toggle.mic-active {
+  color: #22d3ee !important;
+  background: rgba(34, 211, 238, 0.1) !important;
+}
+
+.mic-pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #22d3ee;
+  animation: micPulse 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes micPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+}

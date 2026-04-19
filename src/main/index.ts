@@ -7,7 +7,10 @@ import {
   globalShortcut,
   screen,
   session,
-  safeStorage
+  safeStorage,
+  Tray,
+  Menu,
+  nativeImage
 } from 'electron'
 import path, { join } from 'path'
 import fs from 'fs'
@@ -47,7 +50,8 @@ import registerScreenPeeler from './handlers/ScreenPeeler-handler'
 import registerPhantomKeyboard from './handlers/PhantomControl-handler'
 import registerSecurityVault from './security/Security'
 import registerLockSystem from './security/lock-system'
-import { autoUpdater } from 'electron-updater';
+import { listQuarantined, restoreFile, deleteQuarantined } from './security/quarantine-manager'
+import { autoUpdater } from 'electron-updater'
 
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
 
@@ -65,7 +69,10 @@ if (!gotTheLock) {
 }
 
 let mainWindow: BrowserWindow | null = null
+let quickChatWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 let isOverlayMode = false
+let isQuiting = false
 
 const secureConfigPath = join(app.getPath('userData'), 'iris_secure_vault.json')
 
@@ -79,10 +86,9 @@ function createWindow(): void {
     width: 1280,
     height: 720,
     show: false,
-    fullscreen: true,
+    fullscreen: false,
     autoHideMenuBar: true,
-    frame: false,
-    transparent: true,
+    frame: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -96,8 +102,16 @@ function createWindow(): void {
     if (mainWindow) mainWindow.show()
   })
 
+  // ── Close to Tray (background running) ─────────────────────────────
+  mainWindow.on('close', (e) => {
+    if (!isQuiting) {
+      e.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   ipcMain.on('window-min', () => mainWindow?.minimize())
-  ipcMain.on('window-close', () => mainWindow?.close())
+  ipcMain.on('window-close', () => mainWindow?.hide())
   ipcMain.on('window-max', () => {
     if (mainWindow?.isMaximized()) mainWindow.unmaximize()
     else mainWindow?.maximize()
@@ -120,8 +134,7 @@ function createWindow(): void {
 }
 
 app.on('second-instance', (event, commandLine) => {
-  if (!event) {
-  }
+  if (!event) return
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.focus()
@@ -132,7 +145,7 @@ app.on('second-instance', (event, commandLine) => {
   }
 })
 
-function toggleOverlayMode() {
+function toggleOverlayMode(): void {
   if (!mainWindow) return
 
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -162,7 +175,7 @@ function toggleOverlayMode() {
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdatesAndNotify()
 
   ipcMain.handle('secure-save-keys', async (_, { groqKey, geminiKey }) => {
     try {
@@ -183,8 +196,8 @@ app.whenReady().then(() => {
 
       fs.writeFileSync(secureConfigPath, JSON.stringify(secureData))
       return { success: true }
-    } catch (error: any) {
-      return { success: false, error: error.message }
+    } catch (error: unknown) {
+      return { success: false, error: (error as Error).message }
     }
   })
 
@@ -203,7 +216,7 @@ app.whenReady().then(() => {
       }
 
       return { groqKey, geminiKey }
-    } catch (err) {
+    } catch (_err) {
       return null
     }
   })
@@ -274,10 +287,76 @@ app.whenReady().then(() => {
     return sources[0]?.id
   })
 
+  // ── Quarantine IPC Handlers ────────────────────────────────────────
+  ipcMain.handle('quarantine-list', async () => {
+    return listQuarantined()
+  })
+
+  ipcMain.handle('quarantine-restore', async (_, id: string) => {
+    return restoreFile(id)
+  })
+
+  ipcMain.handle('quarantine-delete', async (_, id: string) => {
+    return deleteQuarantined(id)
+  })
+
   createWindow()
 
+  // ── System Tray ────────────────────────────────────────────────────
+  const trayIconPath = join(app.getAppPath(), 'resources', 'icon.png')
+  const trayNativeImage = nativeImage.createFromPath(trayIconPath).resize({ width: 20, height: 20 })
+  tray = new Tray(trayNativeImage)
+  tray.setToolTip('MJ Assistant')
+
+  const trayMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open MJ Control Center',
+      click: (): void => {
+        mainWindow?.show()
+        mainWindow?.focus()
+      }
+    },
+    {
+      label: 'Quick Chat',
+      click: (): void => toggleQuickChat()
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit MJ',
+      click: (): void => {
+        isQuiting = true
+        if (quickChatWindow) quickChatWindow.destroy()
+        app.quit()
+      }
+    }
+  ])
+  tray.setContextMenu(trayMenu)
+  tray.on('double-click', () => {
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
+
+  // ── Quit App IPC (from Stop MJ button when user really wants to quit) ──
+  ipcMain.handle('quit-app', () => {
+    isQuiting = true
+    if (quickChatWindow) quickChatWindow.destroy()
+    app.quit()
+  })
+
+  // ── Global Shortcuts ───────────────────────────────────────────────
   globalShortcut.register('CommandOrControl+Shift+I', () => toggleOverlayMode())
   ipcMain.on('toggle-overlay', () => toggleOverlayMode())
+
+  // Alt+Space → Toggle Mic (sends IPC to renderer)
+  globalShortcut.register('Alt+Space', () => {
+    if (mainWindow) {
+      mainWindow.show()
+      mainWindow.webContents.send('toggle-mic')
+    }
+  })
+
+  // Ctrl+Shift+M → Toggle Quick Chat
+  globalShortcut.register('CommandOrControl+Shift+M', () => toggleQuickChat())
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -289,7 +368,54 @@ app.on('will-quit', () => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  // Do NOT quit — let tray keep running
 })
+
+// ── Quick Chat Window ────────────────────────────────────────────────
+function createQuickChatWindow(): void {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width, height } = primaryDisplay.workAreaSize
+
+  quickChatWindow = new BrowserWindow({
+    width: 400,
+    height: 520,
+    x: width - 420,
+    y: height - 540,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  const quickChatPath = join(app.getAppPath(), 'static ui', 'quick-chat.html')
+  quickChatWindow.loadFile(quickChatPath)
+
+  quickChatWindow.on('closed', () => {
+    quickChatWindow = null
+  })
+
+  quickChatWindow.on('blur', () => {
+    quickChatWindow?.hide()
+  })
+}
+
+function toggleQuickChat(): void {
+  if (!quickChatWindow || quickChatWindow.isDestroyed()) {
+    createQuickChatWindow()
+    quickChatWindow?.once('ready-to-show', () => {
+      quickChatWindow?.show()
+      quickChatWindow?.focus()
+    })
+  } else if (quickChatWindow.isVisible()) {
+    quickChatWindow.hide()
+  } else {
+    quickChatWindow.show()
+    quickChatWindow.focus()
+  }
+}

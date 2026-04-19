@@ -1,5 +1,5 @@
-appId: com.harshpandey.iris
-productName: IRIS AI
+appId: com.sudip.mj
+productName: MJ AI
 directories:
   buildResources: build
 files:
@@ -13,7 +13,7 @@ asarUnpack:
   - resources/**
 
 win:
-  executableName: iris-ai
+  executableName: mj-assistant
   icon: build/icon.ico
   target:
     - target: nsis
@@ -50,7 +50,7 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: Harsh Pandey
+  maintainer: Sudip
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
@@ -58,5 +58,5 @@ appImage:
 npmRebuild: false
 publish:
   provider: github
-  owner: 201Harsh
-  repo: IRIS-AI
+  owner: Sudip1844
+  repo: MJ-Assistant

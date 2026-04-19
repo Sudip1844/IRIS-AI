@@ -413,4 +413,185 @@
     // --- Log Electron status ---
     console.log('[MJ Control Center] Electron bridge:', isElectron ? 'CONNECTED' : 'DEMO MODE');
 
+    // ========= QUARANTINE ZONE =========
+    const refreshQuarantineBtn = document.getElementById('refresh-quarantine');
+    const quarantineListEl = document.getElementById('quarantine-list');
+
+    async function loadQuarantine() {
+        if (!isElectron || !quarantineListEl) return;
+        try {
+            const items = await ipc.invoke('quarantine-list');
+            if (!items || items.length === 0) {
+                quarantineListEl.innerHTML = '<div class="p-6 text-center border-2 border-dashed border-border rounded-2xl opacity-50"><p class="text-sm font-medium">🛡️ No files in quarantine.</p><p class="text-xs opacity-50 mt-1">Suspicious files will appear here for your review.</p></div>';
+                return;
+            }
+            quarantineListEl.innerHTML = items.map(item => `
+                <div class="flex items-center justify-between p-4 rounded-xl bg-background border border-amber-500/20 hover:border-amber-500/40 transition-colors" data-qid="${item.id}">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold truncate">${item.originalPath.split('\\\\').pop() || item.originalPath.split('/').pop()}</p>
+                        <p class="text-[10px] opacity-50 truncate">${item.reason}</p>
+                        <p class="text-[10px] opacity-30">${new Date(item.timestamp).toLocaleString()}</p>
+                    </div>
+                    <div class="flex gap-2 ml-3 shrink-0">
+                        <button onclick="restoreQuarantined('${item.id}')" class="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-bold hover:bg-emerald-500 hover:text-white transition-all">Restore</button>
+                        <button onclick="deleteQuarantined('${item.id}')" class="px-3 py-1 bg-rose-500/10 text-rose-500 rounded-lg text-[10px] font-bold hover:bg-rose-500 hover:text-white transition-all">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch(e) { console.error('[Quarantine]', e); }
+    }
+
+    window.restoreQuarantined = async function(id) {
+        if (!isElectron) return;
+        await ipc.invoke('quarantine-restore', id);
+        loadQuarantine();
+    };
+
+    window.deleteQuarantined = async function(id) {
+        if (!isElectron) return;
+        await ipc.invoke('quarantine-delete', id);
+        loadQuarantine();
+    };
+
+    if (refreshQuarantineBtn) refreshQuarantineBtn.addEventListener('click', loadQuarantine);
+    // Auto-load on settings tab open
+    document.querySelector('[data-tab="settings"]')?.addEventListener('click', () => setTimeout(loadQuarantine, 200));
+
+    // ========= SAVE AGENT API KEYS =========
+    const saveAgentBtn = document.getElementById('save-agent-config');
+    if (saveAgentBtn) {
+        saveAgentBtn.addEventListener('click', async () => {
+            const config = {
+                brain: {
+                    provider: document.getElementById('brain-provider')?.value || 'google',
+                    key: document.getElementById('brain-api-key')?.value || ''
+                },
+                vision: {
+                    provider: document.getElementById('vision-provider')?.value || 'google',
+                    key: document.getElementById('vision-api-key')?.value || ''
+                },
+                code: {
+                    provider: document.getElementById('code-provider')?.value || 'anthropic',
+                    key: document.getElementById('code-api-key')?.value || ''
+                },
+                tavily: document.getElementById('tavily-api-key')?.value || '',
+                image: document.getElementById('image-api-key')?.value || ''
+            };
+
+            if (isElectron) {
+                try {
+                    await ipc.invoke('secure-save-keys', {
+                        groqKey: JSON.stringify(config),
+                        geminiKey: config.brain.key
+                    });
+                    saveAgentBtn.textContent = '✅ Saved Successfully!';
+                    saveAgentBtn.classList.remove('bg-primary');
+                    saveAgentBtn.classList.add('bg-emerald-500');
+                    setTimeout(() => {
+                        saveAgentBtn.innerHTML = '💾 SAVE ALL API KEYS (Encrypted)';
+                        saveAgentBtn.classList.remove('bg-emerald-500');
+                        saveAgentBtn.classList.add('bg-primary');
+                    }, 2000);
+                } catch(e) {
+                    saveAgentBtn.textContent = '❌ Save Failed';
+                    setTimeout(() => saveAgentBtn.innerHTML = '💾 SAVE ALL API KEYS (Encrypted)', 2000);
+                }
+            } else {
+                alert('API key encryption requires the Electron app. Running in demo mode.');
+            }
+        });
+    }
+
+    // ========= MIC TOGGLE (Voice Input) =========
+    const micBtn = document.getElementById('mic-btn');
+    const micIconOff = document.getElementById('mic-icon-off');
+    const micIconOn = document.getElementById('mic-icon-on');
+    const micPulse = document.getElementById('mic-pulse');
+    let isMicActive = false;
+    let recognition = null;
+
+    function toggleMic() {
+        isMicActive = !isMicActive;
+
+        if (isMicActive) {
+            micBtn.classList.add('mic-active');
+            micIconOff.style.display = 'none';
+            micIconOn.style.display = '';
+            micPulse.style.display = '';
+            voiceStatus.textContent = 'Voice: Listening...';
+            startSpeechRecognition();
+        } else {
+            micBtn.classList.remove('mic-active');
+            micIconOff.style.display = '';
+            micIconOn.style.display = 'none';
+            micPulse.style.display = 'none';
+            voiceStatus.textContent = 'Voice: Standby';
+            stopSpeechRecognition();
+        }
+    }
+
+    function startSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn('Speech Recognition not supported');
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event) => {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+            }
+            if (finalTranscript.trim()) {
+                chatInput.value = finalTranscript.trim();
+                sendBtn.disabled = false;
+                // Auto-send after voice input
+                sendMessage();
+                // Turn off mic after capturing
+                toggleMic();
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            if (isMicActive) toggleMic();
+        };
+
+        recognition.onend = () => {
+            // Restart if still active (browser may stop it)
+            if (isMicActive && recognition) {
+                try { recognition.start(); } catch(e) { /* already running */ }
+            }
+        };
+
+        try {
+            recognition.start();
+        } catch(e) {
+            console.error('Could not start recognition:', e);
+        }
+    }
+
+    function stopSpeechRecognition() {
+        if (recognition) {
+            try { recognition.stop(); } catch(e) { /* ok */ }
+            recognition = null;
+        }
+    }
+
+    if (micBtn) {
+        micBtn.addEventListener('click', () => toggleMic());
+    }
+
+    // Listen for Alt+Space from main process
+    if (isElectron) {
+        ipc.on('toggle-mic', () => toggleMic());
+    }
+
 })();
