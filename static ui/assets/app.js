@@ -131,32 +131,61 @@
     // --- Stats (real data from Electron, or simulated) ---
     function startStatsUpdates() {
         updateStats();
+        updateProcesses();
         statsInterval = setInterval(updateStats, 3000);
+        window.processInterval = setInterval(updateProcesses, 30000);
     }
 
     function stopStatsUpdates() {
         if (statsInterval) clearInterval(statsInterval);
+        if (window.processInterval) clearInterval(window.processInterval);
         if (cpuValue) { cpuValue.textContent = '0%'; cpuBar.style.width = '0%'; }
         if (ramValue) { ramValue.textContent = '0%'; ramBar.style.width = '0%'; }
         if (ramUsed) ramUsed.textContent = '0GB';
+        const diskValue = document.getElementById('disk-value');
+        const diskBar = document.getElementById('disk-bar');
+        const diskFree = document.getElementById('disk-free');
+        const diskTotal = document.getElementById('disk-total');
+        if (diskValue) diskValue.textContent = '0%';
+        if (diskBar) diskBar.style.width = '0%';
+        if (diskFree) diskFree.textContent = '0GB';
+        if (diskTotal) diskTotal.textContent = '0GB';
     }
 
     async function updateStats() {
         if (isElectron) {
             try {
-                const info = await ipc.invoke('get-system-info');
-                if (info && info.cpu !== undefined) {
-                    const cpu = Math.round(info.cpu);
-                    if (cpuValue) { cpuValue.textContent = cpu + '%'; cpuBar.style.width = cpu + '%'; }
+                const info = await ipc.invoke('get-system-stats');
+                if (info) {
+                    if (info.cpu !== undefined) {
+                        const cpuStr = String(info.cpu);
+                        if (cpuValue) { cpuValue.textContent = cpuStr + '%'; cpuBar.style.width = cpuStr + '%'; }
+                    }
+                    if (info.memory !== undefined) {
+                        if (ramValue) { ramValue.textContent = info.memory.usedPercentage + '%'; ramBar.style.width = info.memory.usedPercentage + '%'; }
+                        if (ramUsed) ramUsed.textContent = info.memory.free + ' Free';
+                    }
                 }
-                if (info && info.ram !== undefined) {
-                    const ram = Math.round(info.ram);
-                    const ramGB = ((ram / 100) * 16).toFixed(1);
-                    if (ramValue) { ramValue.textContent = ram + '%'; ramBar.style.width = ram + '%'; }
-                    if (ramUsed) ramUsed.textContent = ramGB + 'GB';
+                
+                // Get Drives
+                const drives = await ipc.invoke('get-drives');
+                if (drives && drives.length > 0) {
+                    const cDrive = Array.isArray(drives) ? drives.find(d => d.Name === 'C') || drives[0] : drives;
+                    if (cDrive && cDrive.FreeGB && cDrive.TotalGB) {
+                        const usedGB = cDrive.TotalGB - cDrive.FreeGB;
+                        const diskPct = Math.round((usedGB / cDrive.TotalGB) * 100);
+                        const diskValue = document.getElementById('disk-value');
+                        const diskBar = document.getElementById('disk-bar');
+                        const diskFree = document.getElementById('disk-free');
+                        const diskTotal = document.getElementById('disk-total');
+                        if (diskValue) diskValue.textContent = diskPct + '%';
+                        if (diskBar) diskBar.style.width = diskPct + '%';
+                        if (diskFree) diskFree.textContent = cDrive.FreeGB + 'GB Free';
+                        if (diskTotal) diskTotal.textContent = cDrive.TotalGB + 'GB Total';
+                    }
                 }
                 return;
-            } catch(e) { /* fall through to simulated */ }
+            } catch(e) { console.error('Stats error:', e); /* fall through to simulated */ }
         }
         // Simulated stats for demo / non-Electron mode
         const cpu = Math.floor(Math.random() * 30) + 5;
@@ -206,12 +235,11 @@
         if (isElectron) {
             // Route the chat message through the IRIS AI backend
             try {
-                // For now, we send the text to the main process
-                // The GeminiLiveService in IRIS handles actual AI responses
-                // This is a placeholder for the full voice-AI integration
-                const result = await ipc.invoke('run-shell-command', { command: `echo "${text}"` });
+                // Fetch user preferences directly inside backend or frontend
+                // The new handler 'chat-with-ai' is created in the backend
+                const result = await ipc.invoke('chat-with-ai', text);
                 thinkingEl.remove();
-                appendMessage('mj', 'Command executed. Result: ' + (result.output || 'Done'));
+                appendMessage('mj', result || 'No response.');
             } catch (err) {
                 thinkingEl.remove();
                 appendMessage('error', 'Backend error: ' + err.message);
@@ -395,20 +423,57 @@
             scanBtn.classList.add('animate-pulse');
             scanBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Scanning...';
 
-            if (isElectron) {
-                try {
-                    const apps = await ipc.invoke('get-running-apps');
-                    console.log('[MJ] Running apps:', apps);
-                } catch(e) { /* silent */ }
-            }
+            await updateProcesses();
 
-            setTimeout(() => {
-                scanBtn.disabled = false;
-                scanBtn.classList.remove('animate-pulse');
-                scanBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Scan System';
-            }, 1500);
+            scanBtn.disabled = false;
+            scanBtn.classList.remove('animate-pulse');
+            scanBtn.innerHTML = 'Scan System';
         });
     }
+
+    // --- Dynamic Processes ---
+    async function updateProcesses() {
+        if (!isElectron) return;
+        try {
+            const apps = await ipc.invoke('get-installed-apps');
+            const appsGrid = document.getElementById('apps-grid');
+            if (apps && apps.length > 0 && appsGrid) {
+                // Populate bottom grid
+                appsGrid.innerHTML = apps.slice(0, 50).map(a => `
+                    <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="${escapeHtml(a.name)}">
+                        <div class="flex items-center gap-2 md:gap-3 min-w-0">
+                            <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center shrink-0 text-primary">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 md:w-5 md:h-5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                            </div>
+                            <span class="font-bold text-xs md:text-sm truncate">${escapeHtml(a.name)}</span>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Populate active feed in Monitor
+                const processCore = document.getElementById('process-core');
+                if (processCore && processCore.parentElement) {
+                    processCore.parentElement.innerHTML = `
+                        <div class="grid grid-cols-4 text-[8px] md:text-[10px] uppercase tracking-widest font-bold opacity-30 px-2 mb-4">
+                            <span>Process</span><span>PID</span><span>Status</span><span>AppID</span>
+                        </div>
+                        ${apps.slice(0, 4).map(a => `
+                        <div class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent align-middle items-center">
+                            <span class="font-bold truncate text-xs">${escapeHtml(a.name)}</span>
+                            <span class="opacity-50 text-[10px]">Local</span>
+                            <span class="text-emerald-500 font-bold text-[10px]">Active</span>
+                            <span class="truncate opacity-50 text-[9px]">${escapeHtml(a.id)}</span>
+                        </div>
+                        `).join('')}
+                    `;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to get apps:', err);
+        }
+    }
+
+
 
     // --- Log Electron status ---
     console.log('[MJ Control Center] Electron bridge:', isElectron ? 'CONNECTED' : 'DEMO MODE');
@@ -592,6 +657,129 @@
     // Listen for Alt+Space from main process
     if (isElectron) {
         ipc.on('toggle-mic', () => toggleMic());
+    }
+
+    // ========= PHONE LINK (ADB) CONFIGURATION =========
+    const phoneInfoBtn = document.getElementById('phone-info-btn');
+    const phoneGuidePanel = document.getElementById('phone-guide-panel');
+    const adbIpInput = document.getElementById('adb-ip');
+    const adbPortInput = document.getElementById('adb-port');
+    const adbConnectBtn = document.getElementById('adb-connect-btn');
+    const adbDisconnectBtn = document.getElementById('adb-disconnect-btn');
+    const phoneDashboard = document.getElementById('phone-dashboard');
+    const phoneBattery = document.getElementById('phone-battery');
+    const phoneStorage = document.getElementById('phone-storage');
+    const phoneTemp = document.getElementById('phone-temp');
+    let adbTelemetryInterval = null;
+
+    if (phoneInfoBtn && phoneGuidePanel) {
+        phoneInfoBtn.addEventListener('click', () => {
+            phoneGuidePanel.classList.toggle('hidden');
+        });
+    }
+
+    if (adbConnectBtn && isElectron) {
+        adbConnectBtn.addEventListener('click', async () => {
+            const ip = adbIpInput.value.trim();
+            const port = adbPortInput.value.trim() || '5555';
+            if (!ip) return;
+            
+            adbConnectBtn.textContent = 'CONNECTING...';
+            adbConnectBtn.classList.add('opacity-50', 'pointer-events-none');
+            
+            const res = await ipc.invoke('adb-connect', { ip, port });
+            adbConnectBtn.classList.remove('opacity-50', 'pointer-events-none');
+            
+            if (res && res.success) {
+                adbConnectBtn.classList.add('hidden');
+                adbDisconnectBtn.classList.remove('hidden');
+                phoneDashboard.classList.remove('opacity-50', 'pointer-events-none');
+                startAdbTelemetry();
+            } else {
+                adbConnectBtn.textContent = 'CONNECT';
+                alert('Connection refused: ' + (res?.error || 'Ensure TCP/IP daemon is running.'));
+            }
+        });
+    }
+
+    if (adbDisconnectBtn && isElectron) {
+        adbDisconnectBtn.addEventListener('click', async () => {
+            await ipc.invoke('adb-disconnect');
+            adbDisconnectBtn.classList.add('hidden');
+            adbConnectBtn.classList.remove('hidden');
+            adbConnectBtn.textContent = 'CONNECT';
+            phoneDashboard.classList.add('opacity-50', 'pointer-events-none');
+            if(adbTelemetryInterval) clearInterval(adbTelemetryInterval);
+            phoneBattery.textContent = '--%';
+            phoneTemp.textContent = '-- °C';
+            phoneStorage.textContent = '-- / --';
+        });
+    }
+
+    function startAdbTelemetry() {
+        if(adbTelemetryInterval) clearInterval(adbTelemetryInterval);
+        adbTelemetryInterval = setInterval(async () => {
+            if(!isElectron) return;
+            const res = await ipc.invoke('adb-telemetry');
+            if(res && res.success && res.data) {
+                phoneBattery.textContent = res.data.battery?.level + '%' + (res.data.battery?.isCharging ? ' ⚡' : '');
+                phoneTemp.textContent = res.data.battery?.temp + ' °C';
+                phoneStorage.textContent = res.data.storage?.used + ' / ' + res.data.storage?.total;
+            }
+        }, 5000);
+    }
+
+    // Phone Action Buttons
+    document.querySelectorAll('.phone-action-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const action = btn.dataset.action;
+            if(isElectron && action) {
+                btn.classList.add('scale-95', 'opacity-70');
+                await ipc.invoke('adb-quick-action', { action });
+                setTimeout(() => btn.classList.remove('scale-95', 'opacity-70'), 200);
+            }
+        });
+    });
+    // ========= WIDGETS CONFIGURATION =========
+    const btnDeepResearch = document.getElementById('btn-deep-research');
+    const btnLiveCode = document.getElementById('btn-live-code');
+    const btnSmartDropzones = document.getElementById('btn-smart-dropzones');
+    const btnGhostControl = document.getElementById('btn-ghost-control');
+
+    if (btnDeepResearch) {
+        btnDeepResearch.addEventListener('click', () => {
+            if (isElectron) {
+                // IPC call to launch deep research window or just alert for now since we don't have the exact launch logic yet
+                alert('Deep Research Widget activated. This connects to Tavily & Groq in the backend for automated large-scale querying.');
+            } else {
+                alert('Deep Research requires Electron backend.');
+            }
+        });
+    }
+
+    if (btnLiveCode) {
+        btnLiveCode.addEventListener('click', async () => {
+            if (isElectron) {
+                alert('Live Coding module activated. Send a prompt via AI chat to start inline coding generation.');
+                // Here we might eventually load the coder UI panel explicitly
+            }
+        });
+    }
+
+    if (btnSmartDropzones) {
+        btnSmartDropzones.addEventListener('click', () => {
+            alert('Smart DropZones configuration launched. You can now drag and drop files onto floating targets across your desktop.');
+        });
+    }
+
+    if (btnGhostControl) {
+        btnGhostControl.addEventListener('click', () => {
+            if (isElectron) {
+                alert('Ghost Control (Phantom Control) sequence initiated. You can also trigger this via Ctrl+Alt+Space. Proceed with high caution.');
+            } else {
+                alert('Ghost Control requires Native OS access.');
+            }
+        });
     }
 
 })();

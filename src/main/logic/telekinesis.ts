@@ -8,7 +8,7 @@ interface MockWindow {
   restore: () => void
   bringToTop: () => void
   maximize: () => void
-  setBounds: (b: {x: number, y: number, width: number, height: number}) => void
+  setBounds: (b: { x: number; y: number; width: number; height: number }) => void
 }
 
 const windowManager = { requestAccessibility: (): void => {}, getWindows: (): MockWindow[] => [] }

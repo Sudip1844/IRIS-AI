@@ -51,6 +51,7 @@ import registerPhantomKeyboard from './handlers/PhantomControl-handler'
 import registerSecurityVault from './security/Security'
 import registerLockSystem from './security/lock-system'
 import { listQuarantined, restoreFile, deleteQuarantined } from './security/quarantine-manager'
+import registerChatHandler from './services/chat-handler'
 import { autoUpdater } from 'electron-updater'
 
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
@@ -137,6 +138,7 @@ app.on('second-instance', (event, commandLine) => {
   if (!event) return
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
+    if (!mainWindow.isVisible()) mainWindow.show()
     mainWindow.focus()
     const url = commandLine.find((arg) => arg.startsWith('iris://'))
     if (url) {
@@ -176,6 +178,7 @@ function toggleOverlayMode(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
   autoUpdater.checkForUpdatesAndNotify()
+  registerChatHandler()
 
   ipcMain.handle('secure-save-keys', async (_, { groqKey, geminiKey }) => {
     try {

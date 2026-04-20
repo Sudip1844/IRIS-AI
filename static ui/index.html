@@ -49,6 +49,14 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
             <span class="sidebar-label">Apps</span>
         </button>
+        <button class="sidebar-item" data-tab="phonelink" title="Phone Link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+            <span class="sidebar-label">Phone Link</span>
+        </button>
+        <button class="sidebar-item" data-tab="widgets" title="Widgets">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+            <span class="sidebar-label">Widgets</span>
+        </button>
         <button class="sidebar-item" data-tab="settings" title="Settings">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 md:w-5 md:h-5"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
             <span class="sidebar-label">Settings</span>
@@ -216,14 +224,15 @@
                         </div>
                         <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-50">Disk Space</span>
                     </div>
-                    <div class="text-xl md:text-3xl font-bold tracking-tight">45%</div>
+                    <div id="disk-value" class="text-xl md:text-3xl font-bold tracking-tight">0%</div>
                     <div class="mt-3 md:mt-4 h-1 md:h-1.5 w-full rounded-full overflow-hidden bg-black/5">
-                        <div class="h-full rounded-full bg-amber-500" style="width:45%"></div>
+                        <div id="disk-bar" class="h-full rounded-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
                     </div>
                     <div class="mt-2 flex justify-between text-[9px] md:text-[10px] font-bold opacity-50 uppercase tracking-tighter">
-                        <span>225GB</span><span>500GB</span>
+                        <span id="disk-free">0GB</span><span id="disk-total">0GB</span>
                     </div>
                 </div>
+                <!-- Since Battery isn't always accurate on desktop/VM, we'll keep it static or gracefully handle it via sysinfo in future -->
                 <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm hover:shadow-md transition-all">
                     <div class="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
                         <div class="p-1.5 md:p-2 rounded-lg md:rounded-xl bg-black/5 text-emerald-500">
@@ -231,9 +240,9 @@
                         </div>
                         <span class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-50">Battery</span>
                     </div>
-                    <div class="text-xl md:text-3xl font-bold tracking-tight">85%</div>
+                    <div id="battery-value" class="text-xl md:text-3xl font-bold tracking-tight">--%</div>
                     <div class="mt-3 md:mt-4 h-1 md:h-1.5 w-full rounded-full overflow-hidden bg-black/5">
-                        <div class="h-full rounded-full bg-emerald-500" style="width:85%"></div>
+                        <div id="battery-bar" class="h-full rounded-full bg-emerald-500 transition-all duration-500" style="width:100%"></div>
                     </div>
                 </div>
             </div>
@@ -304,56 +313,18 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-rose-500 md:w-6 md:h-6"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                         Quarantine Zone
                     </h3>
-                    <div class="flex items-center gap-2 px-2 py-0.5 md:px-3 md:py-1 bg-rose-500/10 text-rose-500 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-3 md:h-3"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                        Isolated
+                    <div class="flex items-center gap-2">
+                        <button id="refresh-quarantine" class="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-xl text-xs font-bold hover:bg-amber-500 hover:text-white transition-all">Refresh</button>
+                        <div class="px-2 py-0.5 md:px-3 md:py-1 bg-rose-500/10 text-rose-500 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-3 md:h-3"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            Isolated
+                        </div>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                    <div class="p-3 md:p-4 rounded-xl md:rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col gap-2 md:gap-3 group hover:bg-rose-500/10 transition-all">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-2 md:gap-3 min-w-0">
-                                <div class="p-1.5 md:p-2 rounded-lg bg-rose-500/20 text-rose-500 shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-[18px] md:h-[18px]"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-                                </div>
-                                <div class="min-w-0"><p class="text-xs md:text-sm font-bold truncate">Trojan.Win32.Generic</p><p class="text-[8px] md:text-[10px] opacity-50 truncate">2.4 MB • 2024-03-20</p></div>
-                            </div>
-                            <span class="text-[7px] md:text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-500 shrink-0">High</span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-1 md:mt-2">
-                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider bg-rose-500 text-white rounded-lg hover:opacity-90 transition-opacity">Delete</button>
-                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider border border-rose-500/20 text-rose-500 rounded-lg hover:bg-rose-500/5 transition-colors">Restore</button>
-                        </div>
-                    </div>
-                    <div class="p-3 md:p-4 rounded-xl md:rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col gap-2 md:gap-3 group hover:bg-rose-500/10 transition-all">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-2 md:gap-3 min-w-0">
-                                <div class="p-1.5 md:p-2 rounded-lg bg-rose-500/20 text-rose-500 shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-[18px] md:h-[18px]"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-                                </div>
-                                <div class="min-w-0"><p class="text-xs md:text-sm font-bold truncate">Malware_Sample_01.exe</p><p class="text-[8px] md:text-[10px] opacity-50 truncate">850 KB • 2024-03-22</p></div>
-                            </div>
-                            <span class="text-[7px] md:text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white shrink-0">Critical</span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-1 md:mt-2">
-                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider bg-rose-500 text-white rounded-lg hover:opacity-90 transition-opacity">Delete</button>
-                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider border border-rose-500/20 text-rose-500 rounded-lg hover:bg-rose-500/5 transition-colors">Restore</button>
-                        </div>
-                    </div>
-                    <div class="p-3 md:p-4 rounded-xl md:rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col gap-2 md:gap-3 group hover:bg-rose-500/10 transition-all">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-2 md:gap-3 min-w-0">
-                                <div class="p-1.5 md:p-2 rounded-lg bg-rose-500/20 text-rose-500 shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-[18px] md:h-[18px]"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-                                </div>
-                                <div class="min-w-0"><p class="text-xs md:text-sm font-bold truncate">Spyware.Agent.B</p><p class="text-[8px] md:text-[10px] opacity-50 truncate">1.2 MB • 2024-03-25</p></div>
-                            </div>
-                            <span class="text-[7px] md:text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-500 shrink-0">Medium</span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-1 md:mt-2">
-                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider bg-rose-500 text-white rounded-lg hover:opacity-90 transition-opacity">Delete</button>
-                            <button class="flex-1 py-1.5 md:py-2 text-[8px] md:text-[10px] font-bold uppercase tracking-wider border border-rose-500/20 text-rose-500 rounded-lg hover:bg-rose-500/5 transition-colors">Restore</button>
-                        </div>
+                <div id="quarantine-list" class="space-y-2">
+                    <div class="p-6 text-center border-2 border-dashed border-border rounded-2xl opacity-50">
+                        <p class="text-sm font-medium">🛡️ No files in quarantine.</p>
+                        <p class="text-xs opacity-50 mt-1">Suspicious files will appear here for your review.</p>
                     </div>
                 </div>
             </div>
@@ -534,6 +505,131 @@
             </div>
         </div>
 
+        <!-- ===== TAB: PHONE LINK ===== -->
+        <div id="tab-phonelink" class="tab-content h-full overflow-y-auto max-w-4xl mx-auto space-y-6 pr-2" style="display:none">
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+                        Phone Link
+                    </h2>
+                    <button id="phone-info-btn" class="p-2 rounded-full hover:bg-accent text-emerald-500 transition-colors" title="Connection Guide">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    </button>
+                </div>
+                <div id="phone-guide-panel" class="hidden p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-sm text-emerald-600 dark:text-emerald-400">
+                    <p class="font-bold mb-2">How to connect your Android phone:</p>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>Enable Developer Options & USB Debugging on your phone.</li>
+                        <li>Connect via USB first and run <code class="px-1 bg-black/10 rounded">adb tcpip 5555</code>.</li>
+                        <li>Enter your phone's Wi-Fi IP address below and click Connect.</li>
+                    </ul>
+                </div>
+                <!-- Connection Form -->
+                <div class="flex flex-wrap items-end gap-4 p-6 rounded-3xl border bg-card border-border shadow-sm">
+                    <div class="flex-1 space-y-2 min-w-[200px]">
+                        <label class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Device IP Address</label>
+                        <input type="text" id="adb-ip" class="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="192.168.1.x">
+                    </div>
+                    <div class="w-24 space-y-2">
+                        <label class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Port</label>
+                        <input type="text" id="adb-port" class="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="5555" value="5555">
+                    </div>
+                    <button id="adb-connect-btn" class="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-500 transition-all active:scale-95">CONNECT</button>
+                    <button id="adb-disconnect-btn" class="hidden px-6 py-3 bg-rose-600 text-white font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-500 transition-all active:scale-95">DISCONNECT</button>
+                </div>
+            </div>
+            
+            <div id="phone-dashboard" class="opacity-50 pointer-events-none transition-opacity duration-300 space-y-6">
+                <!-- Phone Stats -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="p-4 rounded-2xl border bg-card border-border">
+                        <span class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Battery</span>
+                        <div id="phone-battery" class="text-2xl font-bold mt-1 text-emerald-500">--%</div>
+                    </div>
+                    <div class="p-4 rounded-2xl border bg-card border-border">
+                        <span class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Storage</span>
+                        <div id="phone-storage" class="text-xl font-bold mt-1">-- / --</div>
+                    </div>
+                    <div class="p-4 rounded-2xl border bg-card border-border">
+                        <span class="text-[10px] font-bold opacity-50 uppercase tracking-widest">Temperature</span>
+                        <div id="phone-temp" class="text-2xl font-bold mt-1 text-rose-500">-- °C</div>
+                    </div>
+                </div>
+                <!-- Quick Actions -->
+                <div class="p-6 rounded-3xl border bg-card border-border">
+                    <h3 class="text-lg font-bold mb-4">Quick Actions</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <button class="phone-action-btn p-3 rounded-xl border border-border bg-background hover:border-primary/50 transition-all flex flex-col items-center gap-2" data-action="wake">
+                            <span class="text-xl">☀️</span><span class="text-xs font-bold">Wake</span>
+                        </button>
+                        <button class="phone-action-btn p-3 rounded-xl border border-border bg-background hover:border-primary/50 transition-all flex flex-col items-center gap-2" data-action="lock">
+                            <span class="text-xl">🔒</span><span class="text-xs font-bold">Lock</span>
+                        </button>
+                        <button class="phone-action-btn p-3 rounded-xl border border-border bg-background hover:border-primary/50 transition-all flex flex-col items-center gap-2" data-action="home">
+                            <span class="text-xl">🏠</span><span class="text-xs font-bold">Home</span>
+                        </button>
+                        <button class="phone-action-btn p-3 rounded-xl border border-border bg-background hover:border-primary/50 transition-all flex flex-col items-center gap-2" data-action="camera">
+                            <span class="text-xl">📷</span><span class="text-xs font-bold">Camera</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== TAB: WIDGETS ===== -->
+        <div id="tab-widgets" class="tab-content h-full overflow-y-auto max-w-5xl mx-auto space-y-8 pr-2" style="display:none">
+            <div class="space-y-2">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+                    Widgets & AI Tools
+                </h2>
+                <p class="text-sm text-muted-foreground">Access Deep Research, Live Code, and Ghost Control modules.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Deep Research -->
+                <div class="p-6 rounded-3xl border bg-card border-border shadow-sm flex flex-col gap-4">
+                    <div class="flex text-blue-500 text-3xl">🔍</div>
+                    <div>
+                        <h3 class="text-lg font-bold">Deep Research</h3>
+                        <p class="text-xs text-muted-foreground mt-1">Activate the intelligent agent to scour the web and cross-reference documents.</p>
+                    </div>
+                    <button id="btn-deep-research" class="mt-auto py-2 px-4 bg-primary text-white rounded-xl font-bold text-sm">Launch Widget</button>
+                </div>
+                
+                <!-- Live Code -->
+                <div class="p-6 rounded-3xl border bg-card border-border shadow-sm flex flex-col gap-4">
+                    <div class="flex text-emerald-500 text-3xl">💻</div>
+                    <div>
+                        <h3 class="text-lg font-bold">Live Coding</h3>
+                        <p class="text-xs text-muted-foreground mt-1">Inline code generation and editing preview system.</p>
+                    </div>
+                    <button id="btn-live-code" class="mt-auto py-2 px-4 bg-primary text-white rounded-xl font-bold text-sm">Launch Widget</button>
+                </div>
+                
+                <!-- Drop Zones -->
+                <div class="p-6 rounded-3xl border bg-card border-border shadow-sm flex flex-col gap-4">
+                    <div class="flex text-orange-500 text-3xl">📁</div>
+                    <div>
+                        <h3 class="text-lg font-bold">Smart DropZones</h3>
+                        <p class="text-xs text-muted-foreground mt-1">Floating targets for rapid drag-and-drop file processing.</p>
+                    </div>
+                    <button id="btn-smart-dropzones" class="mt-auto py-2 px-4 bg-primary text-white rounded-xl font-bold text-sm">Configure Zones</button>
+                </div>
+                
+                <!-- Ghost Control -->
+                <div class="p-6 rounded-3xl border border-rose-500/40 bg-rose-500/5 shadow-sm flex flex-col gap-4 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 text-rose-500/20 text-6xl">👻</div>
+                    <div>
+                        <h3 class="text-lg font-bold text-rose-500">Ghost Control</h3>
+                        <p class="text-xs/relaxed mt-1">Allow AI to directly simulate keyboard and mouse movements across your operating system. <strong class="text-rose-500">High security clearance required.</strong></p>
+                    </div>
+                    <button id="btn-ghost-control" class="mt-auto py-2 px-4 bg-rose-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-rose-500/20">Enable Ghost Control</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== TAB: SETTINGS ===== -->
         <div id="tab-settings" class="tab-content h-full overflow-y-auto max-w-5xl mx-auto space-y-8 pr-2" style="display:none">
             <div class="space-y-2">
@@ -666,22 +762,7 @@
                 <button id="save-agent-config" class="w-full py-3 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all text-sm flex items-center justify-center gap-2">💾 SAVE ALL API KEYS (Encrypted)</button>
             </div>
 
-            <!-- ═══════════ QUARANTINE ZONE ═══════════ -->
-            <div class="p-6 rounded-3xl border bg-card border-border shadow-sm space-y-4">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-lg font-bold flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
-                        🔒 Quarantine Zone
-                    </h3>
-                    <button id="refresh-quarantine" class="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-xl text-xs font-bold hover:bg-amber-500 hover:text-white transition-all">Refresh</button>
-                </div>
-                <div id="quarantine-list" class="space-y-2">
-                    <div class="p-6 text-center border-2 border-dashed border-border rounded-2xl opacity-50">
-                        <p class="text-sm font-medium">🛡️ No files in quarantine.</p>
-                        <p class="text-xs opacity-50 mt-1">Suspicious files will appear here for your review.</p>
-                    </div>
-                </div>
-            </div>
+
 
             <!-- ═══════════ VOICE & GENERAL ═══════════ -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -718,6 +799,38 @@
                 </div>
             </div>
 
+            <!-- Keyboard Shortcuts -->
+            <div class="p-6 rounded-3xl border bg-card border-border shadow-sm space-y-4">
+                <h3 class="text-lg font-bold flex items-center gap-2">⌨️ Keyboard Shortcuts</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm mt-4">
+                    <div class="flex flex-col gap-1 p-4 rounded-xl border border-border bg-background">
+                        <span class="text-emerald-500 font-bold bg-emerald-500/10 px-2 py-1 rounded w-max">Alt + Space</span>
+                        <span class="font-medium mt-1">Talk to MJ (Voice)</span>
+                        <span class="text-xs opacity-50">Quickly toggle microphone to talk.</span>
+                    </div>
+                    <div class="flex flex-col gap-1 p-4 rounded-xl border border-border bg-background">
+                        <span class="text-blue-500 font-bold bg-blue-500/10 px-2 py-1 rounded w-max">Ctrl+Shift+M</span>
+                        <span class="font-medium mt-1">Quick Chat Menu</span>
+                        <span class="text-xs opacity-50">Quick overlay for typing prompts.</span>
+                    </div>
+                    <div class="flex flex-col gap-1 p-4 rounded-xl border border-border bg-background">
+                        <span class="text-purple-500 font-bold bg-purple-500/10 px-2 py-1 rounded w-max">Ctrl+Shift+I</span>
+                        <span class="font-medium mt-1">Toggle Overlay Mode</span>
+                        <span class="text-xs opacity-50">Switch app to mini overlay mode.</span>
+                    </div>
+                    <div class="flex flex-col gap-1 p-4 rounded-xl border border-border bg-background">
+                        <span class="text-orange-500 font-bold bg-orange-500/10 px-2 py-1 rounded w-max">Ctrl+Alt+X</span>
+                        <span class="font-medium mt-1">Screen Peeler</span>
+                        <span class="text-xs opacity-50">Capture & analyse screen selection.</span>
+                    </div>
+                    <div class="flex flex-col gap-1 p-4 rounded-xl border border-border bg-background">
+                        <span class="text-rose-500 font-bold bg-rose-500/10 px-2 py-1 rounded w-max">Ctrl+Alt+Space</span>
+                        <span class="font-medium mt-1">Phantom Control</span>
+                        <span class="text-xs opacity-50">Summon ghost for direct PC control.</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- About -->
             <div class="p-6 rounded-3xl border bg-card border-border shadow-sm space-y-6">
                 <div class="flex items-center gap-4">
@@ -725,12 +838,12 @@
                     <div><h3 class="text-xl font-bold">MJ Personal Assistant</h3><p class="text-sm text-muted-foreground">Next-generation AI control system for your desktop.</p></div>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Version</span><span class="font-medium">2.0.0</span></div>
-                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Brain</span><span class="font-medium">Configurable</span></div>
-                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Voice</span><span class="font-medium">Gemini Live</span></div>
-                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Memory</span><span class="font-medium">Auto + Voice Consent</span></div>
-                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Security</span><span class="font-medium">Active Defense + Quarantine</span></div>
-                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Agents</span><span class="font-medium">Brain + Vision + Code</span></div>
+                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Version</span><span id="sys-version" class="font-medium text-xs sm:text-sm truncate">2.0.0</span></div>
+                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Brain Provider</span><span id="sys-brain" class="font-medium text-xs sm:text-sm truncate">...</span></div>
+                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Voice Model</span><span id="sys-voice" class="font-medium text-xs sm:text-sm truncate">Gemini Live</span></div>
+                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Memory Setup</span><span id="sys-memory" class="font-medium text-xs sm:text-sm truncate">Auto + Vault</span></div>
+                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Security Auth</span><span id="sys-security" class="font-medium text-xs sm:text-sm truncate">Active Defense</span></div>
+                    <div class="flex flex-col gap-1 p-4 rounded-2xl border bg-background border-border"><span class="text-[10px] uppercase tracking-widest opacity-50 font-bold">Engine APIs</span><span id="sys-agents" class="font-medium text-xs sm:text-sm truncate">Fetching...</span></div>
                 </div>
             </div>
         </div>
