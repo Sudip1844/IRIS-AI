@@ -27,9 +27,7 @@ export default function registerGalleryHandlers(ipcMain: IpcMain) {
 
           return {
             filename: file,
-            displayName: file
-              .replace(/_\d+_Generated_by_IRIS\.png$/, '')
-              .replace(/_/g, ' '), 
+            displayName: file.replace(/_\d+_Generated_by_IRIS\.png$/, '').replace(/_/g, ' '),
             path: filePath,
             url: fileUrl,
             createdAt: stats.birthtime
@@ -98,6 +96,33 @@ export default function registerGalleryHandlers(ipcMain: IpcMain) {
       return { canceled: true }
     } catch (error: any) {
       return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('gallery-refresh', async () => {
+    try {
+      if (!fs.existsSync(GALLERY_DIR)) return []
+
+      const files = fs
+        .readdirSync(GALLERY_DIR)
+        .filter((file) => /\.(png|jpg|jpeg|webp|gif)$/i.test(file))
+
+      return files
+        .map((file) => {
+          const filePath = path.join(GALLERY_DIR, file)
+          const stats = fs.statSync(filePath)
+
+          const fileUrl = pathToFileURL(filePath).href
+
+          return {
+            name: file,
+            thumbnail: fileUrl,
+            size: `${(stats.size / 1024).toFixed(1)}KB`
+          }
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    } catch (error) {
+      return []
     }
   })
 }

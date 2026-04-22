@@ -8,9 +8,9 @@ import {
   nativeImage,
   safeStorage
 } from 'electron'
-import path from 'path'
-import fs from 'fs/promises'
-import fsSync from 'fs'
+import * as path from 'path'
+import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
 
 import clipboardy from 'clipboardy'
 import Prism from 'prismjs'
@@ -148,8 +148,7 @@ export default function registerScreenPeeler() {
         peelerWindow = null
         fs.unlink(filePath).catch(() => {})
       })
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   globalShortcut.register('CommandOrControl+Alt+X', triggerPeeler)
@@ -368,7 +367,12 @@ export default function registerScreenPeeler() {
 
       try {
         let apiKey = ''
-        const secureConfigPath = path.join(app.getPath('userData'), 'iris_secure_vault.json')
+        const secureConfigPath =
+          [
+            path.join(app.getPath('userData'), 'mj_secure_vault.json'),
+            path.join(app.getPath('userData'), 'iris_secure_vault.json')
+          ].find((p) => fsSync.existsSync(p)) ||
+          path.join(app.getPath('userData'), 'mj_secure_vault.json')
 
         if (fsSync.existsSync(secureConfigPath)) {
           try {
@@ -378,8 +382,7 @@ export default function registerScreenPeeler() {
             } else {
               apiKey = Buffer.from(data.gemini, 'base64').toString('utf8')
             }
-          } catch (e) {
-          }
+          } catch (e) {}
         }
 
         if (!apiKey || apiKey.trim() === '') {
@@ -452,7 +455,6 @@ export default function registerScreenPeeler() {
           )
         }
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   })
 }

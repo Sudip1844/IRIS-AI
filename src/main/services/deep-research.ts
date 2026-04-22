@@ -60,4 +60,28 @@ export default function registerDeepResearch({ ipcMain }: { ipcMain: IpcMain }) 
       return { success: false, error: String(error) }
     }
   })
+
+  ipcMain.handle('research-start', async (event, { query }) => {
+    try {
+      // Simplified research - in real implementation would use Tavily and Groq
+      // For now, return mock results
+      const mockResults = [
+        {
+          title: `${query} - Research Result 1`,
+          snippet: `This is a mock research result for "${query}". In a real implementation, this would use Tavily API to search the web.`,
+          url: `https://example.com/research/${query.replace(/\s+/g, '-').toLowerCase()}-1`
+        },
+        {
+          title: `${query} - Research Result 2`,
+          snippet: `Another mock research result for "${query}". The actual implementation would synthesize data using Groq AI.`,
+          url: `https://example.com/research/${query.replace(/\s+/g, '-').toLowerCase()}-2`
+        }
+      ]
+
+      return mockResults
+    } catch (error) {
+      console.error('Research failed:', error)
+      return []
+    }
+  })
 }

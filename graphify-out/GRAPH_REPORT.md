@@ -1,12 +1,12 @@
-# Graph Report - .  (2026-04-17)
+# Graph Report - .  (2026-04-21)
 
 ## Corpus Check
-- 108 files · ~127,577 words
+- 121 files · ~152,622 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 343 nodes · 287 edges · 94 communities detected
-- Extraction: 91% EXTRACTED · 9% INFERRED · 0% AMBIGUOUS · INFERRED: 27 edges (avg confidence: 0.8)
+- 406 nodes · 363 edges · 105 communities detected
+- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 28 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -104,104 +104,115 @@
 - [[_COMMUNITY_Community 91|Community 91]]
 - [[_COMMUNITY_Community 92|Community 92]]
 - [[_COMMUNITY_Community 93|Community 93]]
+- [[_COMMUNITY_Community 94|Community 94]]
+- [[_COMMUNITY_Community 95|Community 95]]
+- [[_COMMUNITY_Community 96|Community 96]]
+- [[_COMMUNITY_Community 97|Community 97]]
+- [[_COMMUNITY_Community 98|Community 98]]
+- [[_COMMUNITY_Community 99|Community 99]]
+- [[_COMMUNITY_Community 100|Community 100]]
+- [[_COMMUNITY_Community 101|Community 101]]
+- [[_COMMUNITY_Community 102|Community 102]]
+- [[_COMMUNITY_Community 103|Community 103]]
+- [[_COMMUNITY_Community 104|Community 104]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `runMacroManually()` - 16 edges
 2. `GeminiLiveService` - 9 edges
-3. `getStateDir()` - 4 edges
-4. `getStateFilePath()` - 4 edges
-5. `saveState()` - 4 edges
-6. `loadState()` - 4 edges
-7. `SystemErrorBoundary` - 4 edges
-8. `connectToDevice()` - 4 edges
-9. `sendWhatsAppMessage()` - 3 edges
-10. `scheduleWhatsAppMessage()` - 3 edges
+3. `MJBiometricRecognition` - 8 edges
+4. `main()` - 5 edges
+5. `loadManifest()` - 5 edges
+6. `saveManifest()` - 4 edges
+7. `quarantineFile()` - 4 edges
+8. `getStateDir()` - 4 edges
+9. `getStateFilePath()` - 4 edges
+10. `saveState()` - 4 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `runMacroManually()` --calls--> `getMacroSequence()`  [INFERRED]
-  src\renderer\src\views\WorkFlowEditor.tsx → src\renderer\src\code\macro-executor.ts
-- `runMacroManually()` --calls--> `openApp()`  [INFERRED]
-  src\renderer\src\views\WorkFlowEditor.tsx → src\renderer\src\functions\apps-manager-api.ts
-- `runMacroManually()` --calls--> `performWebSearch()`  [INFERRED]
-  src\renderer\src\views\WorkFlowEditor.tsx → src\renderer\src\functions\apps-manager-api.ts
-- `runMacroManually()` --calls--> `closeApp()`  [INFERRED]
-  src\renderer\src\views\WorkFlowEditor.tsx → src\renderer\src\functions\apps-manager-api.ts
-- `runMacroManually()` --calls--> `runTerminal()`  [INFERRED]
-  src\renderer\src\views\WorkFlowEditor.tsx → src\renderer\src\functions\coding-manager-api.ts
+- `getMacroSequence()` --calls--> `runMacroManually()`  [INFERRED]
+  src\renderer\src\code\macro-executor.ts → src\renderer\src\views\WorkFlowEditor.tsx
+- `openApp()` --calls--> `runMacroManually()`  [INFERRED]
+  src\renderer\src\functions\apps-manager-api.ts → src\renderer\src\views\WorkFlowEditor.tsx
+- `performWebSearch()` --calls--> `runMacroManually()`  [INFERRED]
+  src\renderer\src\functions\apps-manager-api.ts → src\renderer\src\views\WorkFlowEditor.tsx
+- `closeApp()` --calls--> `runMacroManually()`  [INFERRED]
+  src\renderer\src\functions\apps-manager-api.ts → src\renderer\src\views\WorkFlowEditor.tsx
+- `runTerminal()` --calls--> `runMacroManually()`  [INFERRED]
+  src\renderer\src\functions\coding-manager-api.ts → src\renderer\src\views\WorkFlowEditor.tsx
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.1
-Nodes (16): closeApp(), openApp(), performWebSearch(), runTerminal(), draftEmail(), readEmails(), sendEmail(), clickOnCoordinate() (+8 more)
+Cohesion: 0.06
+Nodes (9): base64ToFloat32(), getRunningApps(), getHistory(), fetchHistory(), GeminiLiveService, getLiveLocation(), getAllApps(), getSystemStatus() (+1 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.09
-Nodes (7): base64ToFloat32(), getRunningApps(), GeminiLiveService, getLiveLocation(), getAllApps(), getSystemStatus(), close()
+Cohesion: 0.1
+Nodes (16): closeApp(), openApp(), performWebSearch(), runTerminal(), draftEmail(), readEmails(), sendEmail(), clickOnCoordinate() (+8 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.19
 Nodes (6): readFile(), writeFile(), getStateDir(), getStateFilePath(), loadState(), saveState()
 
 ### Community 3 - "Community 3"
+Cohesion: 0.21
+Nodes (7): main(), MJBiometricRecognition, Load known face encodings from file, Save known face encodings to file, Enroll a new face from image, Recognize faces in an image, Scan face from camera for real-time detection
+
+### Community 4 - "Community 4"
 Cohesion: 0.16
 Nodes (4): cancelIngestion(), addLog(), handleStop(), onProgress()
 
-### Community 4 - "Community 4"
+### Community 5 - "Community 5"
+Cohesion: 0.21
+Nodes (9): appendMessage(), escapeHtml(), sendMessage(), startSpeechRecognition(), startStatsUpdates(), stopSpeechRecognition(), toggleMic(), updateProcesses() (+1 more)
+
+### Community 6 - "Community 6"
+Cohesion: 0.26
+Nodes (8): deleteQuarantined(), listQuarantined(), loadManifest(), quarantineFile(), restoreFile(), saveManifest(), approve(), requestApproval()
+
+### Community 7 - "Community 7"
 Cohesion: 0.2
 Nodes (0): 
 
-### Community 5 - "Community 5"
+### Community 8 - "Community 8"
 Cohesion: 0.31
 Nodes (4): connectToDevice(), fetchTelemetry(), handleManualConnect(), startScreenStream()
 
-### Community 6 - "Community 6"
+### Community 9 - "Community 9"
 Cohesion: 0.22
 Nodes (0): 
 
-### Community 7 - "Community 7"
-Cohesion: 0.25
-Nodes (2): getHistory(), fetchHistory()
-
-### Community 8 - "Community 8"
-Cohesion: 0.38
-Nodes (5): handleDelete(), handleDuplicate(), handleEdit(), loadWorkflowsList(), loadMacroToCanvas()
-
-### Community 9 - "Community 9"
+### Community 10 - "Community 10"
 Cohesion: 0.38
 Nodes (4): handlePinChange(), loadNeuralNets(), processPin(), startScanning()
 
-### Community 10 - "Community 10"
+### Community 11 - "Community 11"
 Cohesion: 0.38
 Nodes (3): deleteNote(), fetchNotes(), saveManualNote()
 
-### Community 11 - "Community 11"
+### Community 12 - "Community 12"
+Cohesion: 0.38
+Nodes (5): handleDelete(), handleDuplicate(), handleEdit(), loadWorkflowsList(), loadMacroToCanvas()
+
+### Community 13 - "Community 13"
 Cohesion: 0.33
 Nodes (1): SystemErrorBoundary
 
-### Community 12 - "Community 12"
+### Community 14 - "Community 14"
 Cohesion: 0.4
 Nodes (2): deleteImage(), fetchGallery()
 
-### Community 13 - "Community 13"
+### Community 15 - "Community 15"
+Cohesion: 0.5
+Nodes (2): createQuickChatWindow(), toggleQuickChat()
+
+### Community 16 - "Community 16"
 Cohesion: 0.6
 Nodes (3): addLog(), handleDone(), handleUpdate()
 
-### Community 14 - "Community 14"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 15 - "Community 15"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 16 - "Community 16"
-Cohesion: 0.5
-Nodes (0): 
-
 ### Community 17 - "Community 17"
-Cohesion: 0.5
-Nodes (0): 
+Cohesion: 0.8
+Nodes (4): appendMessage(), formatResponse(), scrollToBottom(), sendMessage()
 
 ### Community 18 - "Community 18"
 Cohesion: 0.5
@@ -212,8 +223,8 @@ Cohesion: 0.5
 Nodes (0): 
 
 ### Community 20 - "Community 20"
-Cohesion: 0.83
-Nodes (3): compareStocks(), fetchStockData(), fetchYahooData()
+Cohesion: 0.5
+Nodes (0): 
 
 ### Community 21 - "Community 21"
 Cohesion: 0.5
@@ -228,19 +239,19 @@ Cohesion: 0.5
 Nodes (0): 
 
 ### Community 24 - "Community 24"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.83
+Nodes (3): compareStocks(), fetchStockData(), fetchYahooData()
 
 ### Community 25 - "Community 25"
-Cohesion: 0.67
+Cohesion: 0.5
 Nodes (0): 
 
 ### Community 26 - "Community 26"
-Cohesion: 0.67
+Cohesion: 0.5
 Nodes (0): 
 
 ### Community 27 - "Community 27"
-Cohesion: 0.67
+Cohesion: 0.5
 Nodes (0): 
 
 ### Community 28 - "Community 28"
@@ -292,20 +303,20 @@ Cohesion: 0.67
 Nodes (0): 
 
 ### Community 40 - "Community 40"
-Cohesion: 1.0
-Nodes (2): downloadAndAutoSave(), handleEvent()
+Cohesion: 0.67
+Nodes (0): 
 
 ### Community 41 - "Community 41"
-Cohesion: 1.0
+Cohesion: 0.67
 Nodes (0): 
 
 ### Community 42 - "Community 42"
-Cohesion: 1.0
+Cohesion: 0.67
 Nodes (0): 
 
 ### Community 43 - "Community 43"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (2): downloadAndAutoSave(), handleEvent()
 
 ### Community 44 - "Community 44"
 Cohesion: 1.0
@@ -507,122 +518,184 @@ Nodes (0):
 Cohesion: 1.0
 Nodes (0): 
 
+### Community 94 - "Community 94"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 95 - "Community 95"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 96 - "Community 96"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 97 - "Community 97"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 98 - "Community 98"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 99 - "Community 99"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 100 - "Community 100"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 101 - "Community 101"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 102 - "Community 102"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 103 - "Community 103"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 104 - "Community 104"
+Cohesion: 1.0
+Nodes (0): 
+
 ## Knowledge Gaps
-- **Thin community `Community 41`** (2 nodes): `website-builder.ts`, `registerWebsiteBuilder()`
+- **5 isolated node(s):** `Load known face encodings from file`, `Save known face encodings to file`, `Enroll a new face from image`, `Recognize faces in an image`, `Scan face from camera for real-time detection`
+  These have ≤1 connection - possible missing edges or undocumented components.
+- **Thin community `Community 44`** (2 nodes): `website-builder.ts`, `registerWebsiteBuilder()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (2 nodes): `widget-manager.ts`, `registerWidgetMaker()`
+- **Thin community `Community 45`** (2 nodes): `widget-manager.ts`, `registerWidgetMaker()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (2 nodes): `registerAdbHandlers()`, `adb-manager.ts`
+- **Thin community `Community 46`** (2 nodes): `registerAdbHandlers()`, `adb-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (2 nodes): `registerFileOpen()`, `file-open.ts`
+- **Thin community `Community 47`** (2 nodes): `registerAlertsHandlers()`, `alerts-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (2 nodes): `registerFileOps()`, `file-ops.ts`
+- **Thin community `Community 48`** (2 nodes): `registerAppsHandlers()`, `apps-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (2 nodes): `registerFileRead()`, `file-read.ts`
+- **Thin community `Community 49`** (2 nodes): `registerBiometricHandlers()`, `biometric-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (2 nodes): `registerFileWrite()`, `file-write.ts`
+- **Thin community `Community 50`** (2 nodes): `registerFileOpen()`, `file-open.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (2 nodes): `registerGalleryHandlers()`, `gallery-manager.ts`
+- **Thin community `Community 51`** (2 nodes): `registerFileOps()`, `file-ops.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (2 nodes): `registerGmailHandlers()`, `gmail-manager.ts`
+- **Thin community `Community 52`** (2 nodes): `registerFileRead()`, `file-read.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (2 nodes): `registerIpcHandlers()`, `iris-memory-save.ts`
+- **Thin community `Community 53`** (2 nodes): `registerFileWrite()`, `file-write.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (2 nodes): `registerLocationHandlers()`, `live-location.ts`
+- **Thin community `Community 54`** (2 nodes): `registerGalleryHandlers()`, `gallery-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 52`** (2 nodes): `registerNotesHandlers()`, `notes-manager.ts`
+- **Thin community `Community 55`** (2 nodes): `registerGmailHandlers()`, `gmail-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 53`** (2 nodes): `registerPermanentMemory()`, `permanent-memory.ts`
+- **Thin community `Community 56`** (2 nodes): `registerIpcHandlers()`, `iris-memory-save.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 54`** (2 nodes): `registerRealityHacker()`, `reality-hacker.ts`
+- **Thin community `Community 57`** (2 nodes): `registerLocationHandlers()`, `live-location.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 55`** (2 nodes): `telekinesis.ts`, `registerTelekinesis()`
+- **Thin community `Community 58`** (2 nodes): `registerIpcHandlers()`, `mj-memory-save.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 56`** (2 nodes): `terminal-control.ts`, `registerSystemControl()`
+- **Thin community `Community 59`** (2 nodes): `registerNotesHandlers()`, `notes-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (2 nodes): `registerLockSystem()`, `lock-system.ts`
+- **Thin community `Community 60`** (2 nodes): `registerPermanentMemory()`, `permanent-memory.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 58`** (2 nodes): `registerSecurityVault()`, `Security.ts`
+- **Thin community `Community 61`** (2 nodes): `registerPrivacyHandlers()`, `privacy-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (2 nodes): `registerDeepResearch()`, `deep-research.ts`
+- **Thin community `Community 62`** (2 nodes): `registerRealityHacker()`, `reality-hacker.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (2 nodes): `registerIrisCoder()`, `iris-coder.ts`
+- **Thin community `Community 63`** (2 nodes): `stocks-manager.ts`, `registerStocksHandlers()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (2 nodes): `wormhole.ts`, `registerWormhole()`
+- **Thin community `Community 64`** (2 nodes): `telekinesis.ts`, `registerTelekinesis()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 62`** (2 nodes): `workflow-manager.ts`, `registerWorkflowManager()`
+- **Thin community `Community 65`** (2 nodes): `terminal-control.ts`, `registerSystemControl()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (2 nodes): `App()`, `App.tsx`
+- **Thin community `Community 66`** (2 nodes): `registerLockSystem()`, `lock-system.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 64`** (2 nodes): `IndexRoot()`, `IndexRoot.tsx`
+- **Thin community `Community 67`** (2 nodes): `registerSecurityVault()`, `Security.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (2 nodes): `LoginPage()`, `Login.tsx`
+- **Thin community `Community 68`** (2 nodes): `registerChatHandler()`, `chat-handler.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 66`** (2 nodes): `website-builder-api.ts`, `buildAnimatedWebsite()`
+- **Thin community `Community 69`** (2 nodes): `registerDeepResearch()`, `deep-research.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 67`** (2 nodes): `TerminalOverlay.tsx`, `TerminalOverlay()`
+- **Thin community `Community 70`** (2 nodes): `registerIrisCoder()`, `iris-coder.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (2 nodes): `ToolNode.tsx`, `deleteNode()`
+- **Thin community `Community 71`** (2 nodes): `wormhole.ts`, `registerWormhole()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 69`** (2 nodes): `ViewSkelrton.tsx`, `ViewSkeleton()`
+- **Thin community `Community 72`** (2 nodes): `workflow-manager.ts`, `registerWorkflowManager()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 70`** (2 nodes): `processQueue()`, `AxiosInstance.ts`
+- **Thin community `Community 73`** (2 nodes): `App()`, `App.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 71`** (2 nodes): `executeSmartDropZones()`, `DropZone-handler-api.ts`
+- **Thin community `Community 74`** (2 nodes): `IndexRoot()`, `IndexRoot.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 72`** (2 nodes): `playSpotifyMusic()`, `Sporify-manager.ts`
+- **Thin community `Community 75`** (2 nodes): `LoginPage()`, `Login.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 73`** (2 nodes): `executeLockSystem()`, `LockSystem-handler.ts`
+- **Thin community `Community 76`** (2 nodes): `website-builder-api.ts`, `buildAnimatedWebsite()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (2 nodes): `getScreenSourceId()`, `CaptureDesktop.ts`
+- **Thin community `Community 77`** (2 nodes): `TerminalOverlay.tsx`, `TerminalOverlay()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 75`** (2 nodes): `authMiddleware()`, `auth-middleware.tsx`
+- **Thin community `Community 78`** (2 nodes): `ToolNode.tsx`, `deleteNode()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 76`** (2 nodes): `runDeepResearch()`, `deepSearch-rag.ts`
+- **Thin community `Community 79`** (2 nodes): `ViewSkelrton.tsx`, `ViewSkeleton()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (2 nodes): `executeRealityHack()`, `Hacker-api.ts`
+- **Thin community `Community 80`** (2 nodes): `processQueue()`, `AxiosInstance.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (2 nodes): `handleImageGeneration()`, `Image-generator.ts`
+- **Thin community `Community 81`** (2 nodes): `executeSmartDropZones()`, `DropZone-handler-api.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (2 nodes): `weather-api.ts`, `fetchWeather()`
+- **Thin community `Community 82`** (2 nodes): `playSpotifyMusic()`, `Sporify-manager.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 80`** (2 nodes): `StockWidget.tsx`, `handleEvent()`
+- **Thin community `Community 83`** (2 nodes): `executeLockSystem()`, `LockSystem-handler.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (2 nodes): `WeatherWidget.tsx`, `WeatherWidget()`
+- **Thin community `Community 84`** (2 nodes): `getScreenSourceId()`, `CaptureDesktop.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (2 nodes): `WormholeWidget.tsx`, `WormholeWidget()`
+- **Thin community `Community 85`** (2 nodes): `authMiddleware()`, `auth-middleware.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (1 nodes): `electron.vite.config.ts`
+- **Thin community `Community 86`** (2 nodes): `runDeepResearch()`, `deepSearch-rag.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (1 nodes): `eslint.config.mjs`
+- **Thin community `Community 87`** (2 nodes): `executeRealityHack()`, `Hacker-api.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (1 nodes): `index.d.ts`
+- **Thin community `Community 88`** (2 nodes): `handleImageGeneration()`, `Image-generator.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 86`** (1 nodes): `index.ts`
+- **Thin community `Community 89`** (2 nodes): `weather-api.ts`, `fetchWeather()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 87`** (1 nodes): `env.d.ts`
+- **Thin community `Community 90`** (2 nodes): `StockWidget.tsx`, `handleEvent()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 88`** (1 nodes): `Sphere.tsx`
+- **Thin community `Community 91`** (2 nodes): `WeatherWidget.tsx`, `WeatherWidget()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 89`** (1 nodes): `auth-store.ts`
+- **Thin community `Community 92`** (2 nodes): `WormholeWidget.tsx`, `WormholeWidget()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 90`** (1 nodes): `form-type.ts`
+- **Thin community `Community 93`** (1 nodes): `electron.vite.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 91`** (1 nodes): `ErrorBox.tsx`
+- **Thin community `Community 94`** (1 nodes): `eslint.config.mjs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 92`** (1 nodes): `DeepResearch.tsx`
+- **Thin community `Community 95`** (1 nodes): `risk-rules.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 93`** (1 nodes): `SematicSearch.tsx`
+- **Thin community `Community 96`** (1 nodes): `index.d.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 97`** (1 nodes): `index.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 98`** (1 nodes): `env.d.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 99`** (1 nodes): `Sphere.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 100`** (1 nodes): `auth-store.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 101`** (1 nodes): `form-type.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 102`** (1 nodes): `ErrorBox.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 103`** (1 nodes): `DeepResearch.tsx`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 104`** (1 nodes): `SematicSearch.tsx`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `getHistory()` connect `Community 7` to `Community 1`?**
-  _High betweenness centrality (0.003) - this node is a cross-community bridge._
 - **Are the 14 inferred relationships involving `runMacroManually()` (e.g. with `getMacroSequence()` and `setVolume()`) actually correct?**
   _`runMacroManually()` has 14 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `Load known face encodings from file`, `Save known face encodings to file`, `Enroll a new face from image` to the rest of the system?**
+  _5 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.1 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.09 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1 - nodes in this community are weakly interconnected._

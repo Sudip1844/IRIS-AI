@@ -1,23 +1,8 @@
 <div align="center">
 
-![IRIS Neural OS Documentation Banner](./assets/banner.jpeg)
+# MJ Assistant
 
 ## The Autonomous Neural OS Agent
-
-<div style="display: flex; justify-center; gap: 10px; margin-bottom: 20px;">
-  <a href="https://github.com/201Harsh/IRIS-AI/stargazers">
-    <img src="https://img.shields.io/github/stars/201Harsh/IRIS-AI?style=for-the-badge&color=10b981&logo=github&logoColor=white" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/201Harsh/IRIS-AI/network/members">
-    <img src="https://img.shields.io/github/forks/201Harsh/IRIS-AI?style=for-the-badge&color=10b981&logo=git&logoColor=white" alt="GitHub forks">
-  </a>
-  <a href="https://github.com/201Harsh/IRIS-AI/graphs/contributors">
-    <img src="https://img.shields.io/github/contributors/201Harsh/IRIS-AI?style=for-the-badge&color=10b981&logo=users&logoColor=white" alt="Contributors">
-  </a>
-  <a href="https://github.com/201Harsh/IRIS-AI/releases">
-    <img src="https://img.shields.io/github/downloads/201Harsh/IRIS-AI/total?style=for-the-badge&color=10b981&logo=download&logoColor=white" alt="Downloads">
-  </a>
-</div>
 
 **A local-first neural execution system that turns intent into real OS actions.**
 
@@ -35,22 +20,20 @@
 - [🚀 Installation & Setup](#-installation--setup)
 - [📁 Project Structure](#-project-structure)
 - [🧠 Development Philosophy](#-development-philosophy)
-- [🤝 Contributing](#-contributing)
-- [🧩 Extending IRIS](#-extending-iris)
+- [🧩 Extending MJ Assistant](#-extending-mj-assistant)
 - [🧠 Roadmap](#-roadmap)
 - [⚠️ Disclaimer](#️-disclaimer)
 - [👨‍💻 Architect](#-architect)
-- [📜 License](#-license)
 
 ---
 
 # ⚡ Overview
 
-IRIS is not a chatbot.
+MJ Assistant is not a chatbot.
 
 It is a **local-first AI Operating System layer** that executes real-world actions across your system, applications, and devices.
 
-> Speak your command. IRIS executes it.
+> Speak your command. MJ executes it.
 
 ---
 
@@ -128,7 +111,7 @@ It is a **local-first AI Operating System layer** that executes real-world actio
 - 📧 **Draft Email:** Autonomous message composition.
 - 🚀 **Send Email:** Action-oriented direct dispatch.
 
-### 📱 Mobile Telekinesis (Deep Android Link)
+### 📱 Mobile Telekinesis (Phone Link)
 
 - 🔔 **Mobile Notifications:** Read texts from connected phone.
 - 🔋 **Mobile Info:** Battery & hardware telemetry tracking.
@@ -142,7 +125,7 @@ It is a **local-first AI Operating System layer** that executes real-world actio
 
 ### 🕵️ Autonomous Research & Deep RAG
 
-- 🕸️ **Deep Research:** Autonomous Llama 3 web crawling.
+- 🕸️ **Deep Research:** Autonomous web crawling.
 - 📓 **Read Notion Reports:** Deep sync with Notion databases.
 - 📚 **Ingest Codebase:** Deep local project Vector embedding.
 - 🔮 **Consult Oracle:** Deep local codebase RAG queries.
@@ -158,136 +141,118 @@ It is a **local-first AI Operating System layer** that executes real-world actio
 
 ### Frontend
 
-- React + Tailwind + Framer Motion
-- Handles UI, commands, voice
+- HTML5 + Vanilla JS + Tailwind CSS
+- Handles UI, commands, active vision overlays, phone link stats
 
 ### Backend
 
-- Electron (Node.js)
-- Full system access (files, automation, sockets)
+- Electron (Node.js) main process
+- Full system access (files, automation, sockets, ADB)
 
 ### IPC Bridge
 
-```js
-window.electron.ipcRenderer.invoke('tool-name', payload)
-```
+- Secure bridge connecting Custom MJ UI directly to system functions using Context Isolation (`ipcRenderer.invoke`).
 
 ---
 
 # 💻 Tech Stack
 
-IRIS is forged using a high-performance stack combining web technologies with deep native OS access and state-of-the-art AI models.
+MJ Assistant is forged using a high-performance stack combining web technologies with deep native OS access and state-of-the-art AI models.
 
 ### 🖥️ Core Desktop & UI Framework
 
 - **Electron & Vite:** High-performance desktop compilation and split-process architecture.
-- **React 19:** Component-based, responsive frontend.
-- **Tailwind CSS v4:** Utility-first styling engine for the Neon Emerald aesthetic.
-- **Framer Motion & GSAP:** Cinematic, hardware-accelerated UI animations.
-- **Three.js & React Three Fiber:** 3D rendering for complex neural visualizations.
-- **Zustand:** Fast, scalable global state management.
+- **Frontend UI:** Vanilla JavaScript, HTML5, Custom CSS animations.
+- **Tailwind CSS v4:** Utility-first styling engine.
+- **React 19:** Modern React with concurrent features (used in legacy UI).
+- **Framer Motion:** Advanced animations and transitions.
+- **GSAP:** High-performance animation library.
+- **Three.js & @react-three/fiber:** 3D graphics and visualizations.
+- **Zustand:** Lightweight state management.
 
 ### 🧠 AI, RAG & Machine Learning
 
 - **Google Gemini AI:** Core reasoning and generative engine (`@google/genai`).
 - **Groq SDK:** Ultra-fast, low-latency inference routing.
-- **Hugging Face & Xenova:** Local model inference and transformers (`@huggingface/inference`, `@xenova/transformers`).
+- **Hugging Face & Xenova:** Local model inference and transformers.
+- **Face-API.js:** Local biometric facial recognition.
 - **LanceDB (VectorDB):** Embedded local vector database for deep codebase RAG and memory storage.
-- **Face-api.js:** Local biometric facial recognition for the System Vault.
+- **Tesseract.js:** OCR for screen text extraction.
+- **PDF-Parse & Mammoth:** Document parsing for PDFs and Word files.
 
 ### ⚙️ OS Control & Automation Engine
 
-- **Nut.js:** Deep native desktop automation (mouse, keyboard, exact coordinate targeting).
-- **Puppeteer (with Stealth):** Headless browser automation, DOM hacking, and invisible web crawling.
-- **Node Window Manager:** Native OS window lifecycle and spatial placement control.
-- **Tesseract.js:** Optical Character Recognition (OCR) for the 'Screen Peeler' visual extraction.
-- **Native Utilities:** `loudness` (master audio), `clipboardy` (phantom typing), `screenshot-desktop` (visual context).
+- **ADB Integration:** Real-time mobile bridging for phone telemetry.
+- **Nut.js:** Deep native desktop automation (mouse, keyboard).
+- **Puppeteer:** Headless browser automation with stealth plugins.
+- **Node Window Manager:** Native window management.
+- **Native Utilities:** File system, process management, system info.
 
 ### 🔗 Integrations & Parsing
 
-- **Google APIs & Auth:** Secure local auth, Gmail scraping, and Google Cloud services.
-- **Notion Client:** Direct read/write mapping to Notion databases.
-- **Tavily Core:** Agentic, deep-web search routing.
-- **Data Parsers:** `pdf-parse`, `mammoth` (docx), `cheerio` (HTML DOM).
+- **Google APIs:** Gmail, Calendar, Drive integration.
+- **Notion API:** Deep sync with Notion databases.
+- **Tavily:** Advanced web search and research.
+- **Cheerio:** HTML parsing and scraping.
+- **ADB Manager:** Android device control and telemetry.
+- **Web Agent:** Automated web interaction and scraping.
+
+### ⚙️ OS Control & Automation Engine
+
+- **ADB Integration:** Real-time mobile bridging for phone telemetry.
+- **Nut.js:** Deep native desktop automation (mouse, keyboard).
+- **Puppeteer:** Headless browser automation.
 
 ---
 
 # 🔐 Security
 
-- 100% BYOK (Bring Your Own Key)
-- Local encryption (OS keychain)
-- Zero-trust architecture
-- No external key storage
-
----
-
-# 💻 System Requirements
-
-- **OS:** Windows 10 / 11 (Native execution).
-- **Memory:** Minimum 4GB RAM (8GB recommended for heavy RAG indexing).
-- **Storage:** ~3.2 GB for the application, plus extra space for local LanceDB vector storage.
+- 100% BYOK (Bring Your Own Key) saved securely locally.
+- Zero-trust architecture with high-security Ghost / Overlay prompts.
+- Built-in Quarantine manager to isolate flagged code files.
 
 ---
 
 # 🚀 Installation & Setup
 
-### 1. Clone Repo
+### 1. Environment Setup
 
-```bash
-git clone https://github.com/201Harsh/IRIS-AI.git
-cd IRIS-AI
-```
+Copy `.env.example` to `.env` or set it up directly through the GUI Settings tab.
 
-### 2. Environment Setup
-
-```bash
-cp .env.example .env
-```
-
-Add your API keys.
-
----
-
-### 3. Install Dependencies
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
----
-
-### 4. Run Dev Server
+### 3. Run Dev Server
 
 ```bash
 npm run dev
 ```
 
----
-
-### 5. Initialize Vault
+### 4. Initialize Vault & Keys
 
 - Open app
-- Go to Command Center (Settings)
-- Add API keys securely
+- Go to the **Settings** tab.
+- Add your API keys securely in the dashboard section.
 
 ---
 
 # 📁 Project Structure
 
 ```text
-iris/
+mj-assistant/
+├── static ui/               # New Vanilla HTML/JS custom UI layer (Your Dashboard)
+│   ├── index.html           # Main UI entry point
+│   └── assets/              # Native scripts (app.js), css, and icons
 ├── build/                   # OS-specific build artifacts
 ├── out/                     # Compiled output ready for packaging
-├── resources/               # Static assets (icons, trained data, etc.)
 ├── src/                     # Core application source code
-│   ├── main/                # Electron Main Process (Node.js backend & OS execution)
-│   ├── preload/             # Context Isolation Scripts (The IPC secure bridge)
-│   └── renderer/            # React Frontend (UI, floating widgets, GSAP animations)
-├── .env.example             # Template for API keys and environment variables
-├── electron-builder.yml     # Configuration for packaging the .exe / .app / .AppImage
-├── electron.vite.config.ts  # Vite configuration for the split architecture
-├── eng.traineddata          # Tesseract OCR language data file
-└── package.json             # Project dependencies and scripts
+│   ├── main/                # Node.js backend & hardware execution
+│   └── preload/             # Context Isolation IPC Hooks
+├── .env.example             # Template for API keys
+└── package.json             # Project dependencies and configs
 ```
 
 ---
@@ -298,85 +263,47 @@ iris/
 - Local-first intelligence
 - Modular system design
 - Real-world usability
+- Maximum Desktop Integration
 
 ---
 
-## 🤝 Contributing
-
-IRIS is built for the community. If you want to expand the neural forge, submit a PR.
-
-### Quick Start
-
-1. **Fork** the repository.
-2. **Branch** off `main`.
-3. **Match** existing patterns (Tailwind for UI, strict IPC typing for the backend).
-4. **Test** thoroughly (ensure tools do not block the main Electron thread).
-5. **Submit** a PR with a clear explanation and visual evidence if altering the UI.
-
-🚨 **Read the full [Contribution Guide](CONTRIBUTING.md) before submitting.**
-
----
-
-### Commit Rules
-
-Keep your commit messages clean, descriptive, and easy to understand. Clearly state what the commit accomplishes and always include the relevant Issue ID so we can track the changes.
-
-```bash
-✅ git commit -m "feat: integrated new desktop widget (#45)"
-✅ git commit -m "fix: resolved IPC memory leak in Oracle module (#12)"
-```
-
----
-
-# 🧩 Extending IRIS
+# 🧩 Extending MJ Assistant
 
 You can:
 
-- Add new IPC tools
-- Integrate APIs
-- Build automation modules
-- Extend UI widgets
+- Add new tools inside `app.js` and bind them to the node backend.
+- Connect more features into the "Phone Link" ADB system.
+- Build automation modules.
+- Extend UI widgets recursively.
 
 ---
 
 ## 🧠 Roadmap
 
-- [ ] Voice-first system
-- [ ] Plugin marketplace
-- [ ] Memory graph
-- [ ] Multi-agent system
-- [ ] Desktop + Cloud hybrid
+- [ ] Extended Voice Input Controls
+- [ ] Direct iOS Screen Mirroring
+- [ ] Memory graph expansions
+- [ ] Multi-agent widget clusters
+- [ ] Cross-device synchronization
 
 ---
 
 # ⚠️ Disclaimer
 
-IRIS has deep system-level execution capabilities.  
-Use responsibly. The maintainers are not liable for misuse.
+MJ Assistant has deep system-level execution capabilities.  
+Use responsibly. The creator is not liable for misuse.
 
 ---
 
 # 👨‍💻 Architect
 
-**Harsh Pandey**  
-AI Systems Engineer
-
-Instagram: [@201Harshs](https://www.instagram.com/201harshs/)
-GitHub: [@201Harsh](https://github.com/201Harsh)
-
----
-
-# 📜 License
-
-MIT License — see LICENSE file.
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**Sudip**  
+AI Systems & Frontend Engineer
 
 ---
 
 # 🟥 Final Note
 
-**IRIS is not a chatbot.** It is a **neural extension of your operating system**.
+**MJ Assistant is not a chatbot.** It is a **neural extension of your operating system**.
 
 > _System Online._
-
-# Made with ❤️ by [Harsh Pandey](https://instagram.com/201Harshs)

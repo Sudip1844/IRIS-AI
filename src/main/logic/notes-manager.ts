@@ -42,7 +42,7 @@ export default function registerNotesHandlers(ipcMain: IpcMain) {
             path: filePath
           }
         })
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()) 
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     } catch (error) {
       return []
     }
@@ -58,6 +58,45 @@ export default function registerNotesHandlers(ipcMain: IpcMain) {
       return false
     } catch (e) {
       return false
+    }
+  })
+
+  ipcMain.handle('notes-new', async () => {
+    try {
+      const id = Date.now().toString()
+      const title = `Note ${id}`
+      const fileName = `${id}.md`
+      const filePath = path.join(NOTES_DIR, fileName)
+
+      const fileContent = `# ${title}\n\nNew note content...`
+
+      fs.writeFileSync(filePath, fileContent, 'utf-8')
+      return id
+    } catch (error: any) {
+      return null
+    }
+  })
+
+  ipcMain.handle('notes-list', async () => {
+    try {
+      const files = fs.readdirSync(NOTES_DIR).filter((f) => f.endsWith('.md'))
+
+      return files
+        .map((file) => {
+          const filePath = path.join(NOTES_DIR, file)
+          const stats = fs.statSync(filePath)
+          const content = fs.readFileSync(filePath, 'utf-8').split('\n').slice(0, 3).join('\n')
+
+          return {
+            id: file.replace('.md', ''),
+            title: content.split('\n')[0].replace('# ', ''),
+            preview: content,
+            updated: stats.mtime.toLocaleDateString()
+          }
+        })
+        .sort((a, b) => new Date(b.updated).getTime() - new Date(a.updated).getTime())
+    } catch (error) {
+      return []
     }
   })
 }

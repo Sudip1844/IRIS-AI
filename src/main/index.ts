@@ -17,7 +17,7 @@ import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-import registerIpcHandlers from './logic/iris-memory-save'
+import registerIpcHandlers from './logic/mj-memory-save'
 import registerSystemHandlers from './logic/get-system-info'
 import registerFileSearch from './logic/file-search'
 import registerFileOps from './logic/file-ops'
@@ -35,8 +35,13 @@ import registerGalleryHandlers from './logic/gallery-manager'
 import registerGmailHandlers from './logic/gmail-manager'
 import registerLocationHandlers from './logic/live-location'
 import registerAdbHandlers from './logic/adb-manager'
+import registerBiometricHandlers from './logic/biometric-manager'
+import registerStocksHandlers from './logic/stocks-manager'
+import registerAlertsHandlers from './logic/alerts-manager'
+import registerPrivacyHandlers from './logic/privacy-manager'
+import registerAppsHandlers from './logic/apps-manager'
 import registerRealityHacker from './logic/reality-hacker'
-import registerIrisCoder from './services/iris-coder'
+import registerIrisCoder from './services/mj-coder'
 import registerTelekinesis from './logic/telekinesis'
 import registerPermanentMemory from './logic/permanent-memory'
 import registerWormhole from './services/wormhole'
@@ -58,10 +63,10 @@ app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
 
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('iris', process.execPath, [path.resolve(process.argv[1])])
+    app.setAsDefaultProtocolClient('mj', process.execPath, [path.resolve(process.argv[1])])
   }
 } else {
-  app.setAsDefaultProtocolClient('iris')
+  app.setAsDefaultProtocolClient('mj')
 }
 
 const gotTheLock = app.requestSingleInstanceLock()
@@ -75,7 +80,7 @@ let tray: Tray | null = null
 let isOverlayMode = false
 let isQuiting = false
 
-const secureConfigPath = join(app.getPath('userData'), 'iris_secure_vault.json')
+const secureConfigPath = join(app.getPath('userData'), 'mj_secure_vault.json')
 
 // ── UI Mode ──────────────────────────────────────────────────────────
 // Set to true to use the custom MJ Control Center static UI.
@@ -140,7 +145,7 @@ app.on('second-instance', (event, commandLine) => {
     if (mainWindow.isMinimized()) mainWindow.restore()
     if (!mainWindow.isVisible()) mainWindow.show()
     mainWindow.focus()
-    const url = commandLine.find((arg) => arg.startsWith('iris://'))
+    const url = commandLine.find((arg) => arg.startsWith('mj://'))
     if (url) {
       mainWindow.webContents.send('oauth-callback', url)
     }
@@ -283,6 +288,11 @@ app.whenReady().then(() => {
   registerFileOps(ipcMain)
   registerFileScanner(ipcMain)
   registerSystemHandlers(ipcMain)
+  registerBiometricHandlers(ipcMain)
+  registerStocksHandlers(ipcMain)
+  registerAlertsHandlers(ipcMain)
+  registerPrivacyHandlers(ipcMain)
+  registerAppsHandlers(ipcMain)
   registerIpcHandlers({ ipcMain, app })
 
   ipcMain.handle('get-screen-source', async () => {

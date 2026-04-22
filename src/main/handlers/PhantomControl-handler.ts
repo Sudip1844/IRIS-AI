@@ -8,9 +8,9 @@ import {
   safeStorage
 } from 'electron'
 import { keyboard, Key } from '@nut-tree-fork/nut-js'
-import path from 'path'
-import fs from 'fs/promises'
-import fsSync from 'fs'
+import * as path from 'path'
+import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
 
 let phantomWindow: BrowserWindow | null = null
 
@@ -183,8 +183,7 @@ export default function registerPhantomKeyboard() {
         phantomWindow = null
         fs.unlink(filePath).catch(() => {})
       })
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 
   globalShortcut.register('CommandOrControl+Alt+Space', summonPhantom)
@@ -206,19 +205,21 @@ export default function registerPhantomKeyboard() {
     if (!event) return
     try {
       let apiKey = ''
-      const secureConfigPath = path.join(app.getPath('userData'), 'iris_secure_vault.json')
+      const secureConfigPath =
+        [
+          path.join(app.getPath('userData'), 'mj_secure_vault.json'),
+          path.join(app.getPath('userData'), 'iris_secure_vault.json')
+        ].find((p) => fsSync.existsSync(p)) ||
+        path.join(app.getPath('userData'), 'mj_secure_vault.json')
 
-      if (fsSync.existsSync(secureConfigPath)) {
-        try {
-          const data = JSON.parse(fsSync.readFileSync(secureConfigPath, 'utf8'))
-          if (safeStorage.isEncryptionAvailable()) {
-            apiKey = safeStorage.decryptString(Buffer.from(data.gemini, 'base64'))
-          } else {
-            apiKey = Buffer.from(data.gemini, 'base64').toString('utf8')
-          }
-        } catch (e) {
+      try {
+        const data = JSON.parse(fsSync.readFileSync(secureConfigPath, 'utf8'))
+        if (safeStorage.isEncryptionAvailable()) {
+          apiKey = safeStorage.decryptString(Buffer.from(data.gemini, 'base64'))
+        } else {
+          apiKey = Buffer.from(data.gemini, 'base64').toString('utf8')
         }
-      }
+      } catch (e) {}
 
       if (!apiKey || apiKey.trim() === '') {
         if (phantomWindow) {
@@ -280,12 +281,10 @@ export default function registerPhantomKeyboard() {
                   phantomWindow.webContents.send('phantom-stream-chunk', textChunk)
                 }
               }
-            } catch (e) {
-            }
+            } catch (e) {}
           }
         }
       }
-
 
       await sleep(400)
       if (phantomWindow) phantomWindow.close()

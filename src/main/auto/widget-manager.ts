@@ -89,4 +89,29 @@ export default function registerWidgetMaker() {
       return { success: false, error: String(error) }
     }
   })
+
+  ipcMain.handle('widgets-add', async () => {
+    try {
+      // Mock widget creation
+      const widgetId = Date.now().toString()
+      return widgetId
+    } catch (error) {
+      console.error('Add widget failed:', error)
+      return null
+    }
+  })
+
+  ipcMain.handle('widgets-list', async () => {
+    try {
+      // Mock widgets list
+      const mockWidgets = [
+        { id: '1', name: 'Clock Widget', description: 'Shows current time' },
+        { id: '2', name: 'Weather Widget', description: 'Displays weather info' }
+      ]
+      return mockWidgets
+    } catch (error) {
+      console.error('List widgets failed:', error)
+      return []
+    }
+  })
 }
