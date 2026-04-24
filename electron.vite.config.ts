@@ -1,20 +1,17 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
 
-// https://vitejs.dev/config/
+// The actual UI is served from "static ui/index.html" loaded directly by
+// mainWindow.loadFile(). The renderer config below only satisfies
+// electron-vite's requirement for a valid rollup input during builds.
 export default defineConfig({
   main: {},
   preload: {},
   renderer: {
-    publicDir: resolve('src/renderer/src/public'),
-    resolve: {
-      alias: {
-        '@renderer': resolve('src/renderer/src')
+    build: {
+      rollupOptions: {
+        input: resolve(__dirname, 'src/renderer/index.html')
       }
-    },
-    plugins: [react(), tailwindcss()]
+    }
   }
 })
-

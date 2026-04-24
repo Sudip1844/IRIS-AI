@@ -95,4 +95,84 @@ export default function registerSystemHandlers(ipcMain: IpcMain) {
       return []
     }
   })
+
+  // Windows Defender Handlers
+  ipcMain.removeHandler('get-defender-quarantine')
+  ipcMain.handle('get-defender-quarantine', async () => {
+    try {
+      // Get threat detections
+      const cmd = `powershell "Get-MpThreatDetection | Select-Object ThreatName, Resources, InitialDetectionTime, DomainUser, ActionSuccess | ConvertTo-Json"`
+      const output = await runCommand(cmd)
+      if (!output) return []
+      const parsed = JSON.parse(output)
+      return Array.isArray(parsed) ? parsed : [parsed]
+    } catch (e) {
+      console.error('Failed to get defender quarantine:', e)
+      return []
+    }
+  })
+
+  ipcMain.removeHandler('remove-defender-quarantine')
+  ipcMain.handle('remove-defender-quarantine', async (_, threatName: string) => {
+    try {
+      // Remove threat
+      const cmd = `powershell "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -Command Remove-MpThreat -ThreatName ''${threatName}''' -Verb RunAs -Wait"`
+      await runCommand(cmd)
+      return true
+    } catch (e) {
+      console.error('Failed to remove defender threat:', e)
+      return false
+    }
+  })
+
+  ipcMain.removeHandler('restore-defender-quarantine')
+  ipcMain.handle('restore-defender-quarantine', async (_, threatName: string) => {
+    try {
+      // Restore threat
+      const cmd = `powershell "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -Command Restore-MpQuarantine -Name ''${threatName}''' -Verb RunAs -Wait"`
+      await runCommand(cmd)
+      return true
+    } catch (e) {
+      console.error('Failed to restore defender threat:', e)
+      return false
+    }
+  })
+
+  ipcMain.removeHandler('run-full-scan')
+  ipcMain.handle('run-full-scan', async () => {
+    try {
+      // Start a full scan using Windows Defender (Runs as Admin to ensure it executes)
+      const cmd = `powershell "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -Command Start-MpScan -ScanType FullScan' -Verb RunAs"`
+      await runCommand(cmd)
+      return true
+    } catch (e) {
+      console.error('Failed to start full scan:', e)
+      return false
+    }
+  })
+
+  ipcMain.removeHandler('get-security-status')
+  ipcMain.handle('get-security-status', async () => {
+    try {
+      const cmd = `powershell "Get-MpComputerStatus | Select-Object AMServiceEnabled, AntivirusEnabled, RealTimeProtectionEnabled, QuickScanAge, FullScanAge | ConvertTo-Json"`
+      const output = await runCommand(cmd)
+      if (!output) return null
+      
+      const status = JSON.parse(output)
+      
+      const fwCmd = `powershell "Get-NetFirewallProfile | Where-Object Name -eq 'Domain' | Select-Object Enabled | ConvertTo-Json"`
+      const fwOutput = await runCommand(fwCmd)
+      const fwStatus = fwOutput ? JSON.parse(fwOutput) : { Enabled: 1 }
+
+      return {
+        firewall: fwStatus.Enabled ? 'ACTIVE' : 'DISABLED',
+        antivirus: status.AntivirusEnabled ? 'ACTIVE' : 'DISABLED',
+        realtime: status.RealTimeProtectionEnabled,
+        lastScan: status.QuickScanAge < status.FullScanAge ? status.QuickScanAge : status.FullScanAge
+      }
+    } catch (e) {
+      console.error('Failed to get security status:', e)
+      return null
+    }
+  })
 }

@@ -1,3 +1,4 @@
 @echo off
+title MJ Assistant
 cd /d "D:\Antigravity\New folder\IRIS-AI"
-npm run dev
+npx electron .

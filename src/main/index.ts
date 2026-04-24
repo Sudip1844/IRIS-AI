@@ -95,7 +95,7 @@ function createWindow(): void {
     fullscreen: false,
     autoHideMenuBar: true,
     frame: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon: nativeImage.createFromPath(icon),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

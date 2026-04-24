@@ -101,6 +101,19 @@
         target.style.display = ''
         target.classList.add('active')
       }
+      // Auto-load data when specific tabs are opened
+      if (tabId === 'apps' && isElectron) {
+        updateProcesses()
+      }
+      if (tabId === 'monitor' && isPowerOn) {
+        updateStats()
+      }
+      if (tabId === 'alerts' && isElectron) {
+        loadAlerts()
+      }
+      if (tabId === 'settings' && isElectron) {
+        loadSavedKeys()
+      }
     })
   })
 
@@ -296,11 +309,10 @@
     if (isElectron) {
       // Route the chat message through the IRIS AI backend
       try {
-        // Fetch user preferences directly inside backend or frontend
-        // The new handler 'chat-with-ai' is created in the backend
         const result = await ipc.invoke('chat-with-ai', text)
         thinkingEl.remove()
         appendMessage('mj', result || 'No response.')
+        speakAndAnimate(result || 'No response.')
       } catch (err) {
         thinkingEl.remove()
         appendMessage('error', 'Backend error: ' + err.message)
@@ -309,12 +321,66 @@
       // Static demo fallback
       setTimeout(() => {
         thinkingEl.remove()
-        appendMessage(
-          'mj',
-          'I received: "' + text + '". Connect to Electron backend for full AI functionality.'
-        )
+        const reply = 'I received: "' + text + '". Connect to Electron backend for full AI functionality.';
+        appendMessage('mj', reply)
+        speakAndAnimate(reply)
       }, 1500)
     }
+  }
+
+  let visualizerInterval = null;
+  function speakAndAnimate(text) {
+    if (!window.speechSynthesis) return;
+    
+    // Clean text from markdown for speech
+    const cleanText = text.replace(/[*_#]/g, '').replace(/```[\s\S]*?```/g, 'Code block omitted.');
+    
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    
+    // Attempt to pick a good voice
+    const voices = window.speechSynthesis.getVoices();
+    const mjVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Google UK English Female')) || voices[0];
+    if (mjVoice) utterance.voice = mjVoice;
+
+    utterance.onstart = () => {
+      const vizNode = document.querySelector('.viz-pulse .absolute');
+      const innerNode = document.querySelector('.viz-pulse .w-6');
+      if (!vizNode || !innerNode) return;
+      
+      // Start random scaling to simulate audio waveform
+      clearInterval(visualizerInterval);
+      visualizerInterval = setInterval(() => {
+        if (!window.speechSynthesis.speaking) {
+          clearInterval(visualizerInterval);
+          vizNode.style.transform = 'scale(1)';
+          innerNode.style.transform = 'scale(1)';
+          return;
+        }
+        const scale1 = 1 + Math.random() * 0.8;
+        const scale2 = 1 + Math.random() * 0.4;
+        vizNode.style.transform = `scale(${scale1})`;
+        vizNode.style.transition = 'transform 0.1s ease';
+        innerNode.style.transform = `scale(${scale2})`;
+        innerNode.style.transition = 'transform 0.1s ease';
+      }, 100);
+    };
+
+    utterance.onend = () => {
+      clearInterval(visualizerInterval);
+      const vizNode = document.querySelector('.viz-pulse .absolute');
+      const innerNode = document.querySelector('.viz-pulse .w-6');
+      if (vizNode && innerNode) {
+        vizNode.style.transform = 'scale(1)';
+        innerNode.style.transform = 'scale(1)';
+      }
+    };
+    
+    utterance.onerror = utterance.onend;
+
+    window.speechSynthesis.cancel(); // Stop current speech
+    window.speechSynthesis.speak(utterance);
   }
 
   function appendMessage(role, text) {
@@ -435,6 +501,15 @@
         knob.classList.remove('translate-x-0')
         knob.classList.add('translate-x-6')
       }
+      // Save privacy permission states to backend
+      if (isElectron) {
+        const permStates = {}
+        document.querySelectorAll('.toggle-btn').forEach((t) => {
+          const label = t.closest('.flex')?.querySelector('span')?.textContent?.trim() || ''
+          permStates[label.toLowerCase().replace(/\s+/g, '_')] = t.dataset.active === 'true'
+        })
+        ipc.invoke('settings-save', { permissions: permStates }).catch(() => {})
+      }
     })
   })
 
@@ -479,10 +554,73 @@
       }
     })
   })
+  // --- Sub Agent Input (routed through chat-with-ai) ---
+  const addAgentBtn = document.getElementById('add-agent-btn')
+  if (addAgentBtn) {
+    addAgentBtn.addEventListener('click', () => {
+      const name = prompt('Enter custom agent name (e.g., "My GPT-4"):')
+      if (!name || !name.trim()) return
+      const select = document.getElementById('agent-select')
+      if (select) {
+        const opt = document.createElement('option')
+        opt.value = select.options.length + 1
+        opt.textContent = name.trim()
+        select.appendChild(opt)
+        select.value = opt.value
+        const subInput = document.getElementById('subagent-input')
+        if (subInput) subInput.placeholder = `Message ${name.trim()}...`
+      }
+    })
+  }
 
-  // --- Sub Agent Input ---
+  const agentSelectEl = document.getElementById('agent-select')
+  if (agentSelectEl) {
+    agentSelectEl.addEventListener('change', () => {
+      const name = agentSelectEl.options[agentSelectEl.selectedIndex]?.text || 'Agent'
+      const subInput = document.getElementById('subagent-input')
+      if (subInput) subInput.placeholder = `Message ${name}...`
+    })
+  }
+
   const subagentInput = document.getElementById('subagent-input')
   const subagentSend = document.getElementById('subagent-send')
+  const subagentMessages = document.getElementById('subagent-messages')
+
+  async function sendSubAgentMessage() {
+    const text = subagentInput ? subagentInput.value.trim() : ''
+    if (!text) return
+    const selectedAgent = agentSelectEl ? agentSelectEl.options[agentSelectEl.selectedIndex].text : 'AI'
+
+    // Show user message
+    if (subagentMessages) {
+      // Clear placeholder if present
+      if (subagentMessages.querySelector('.text-muted-foreground')) {
+        subagentMessages.innerHTML = ''
+      }
+      subagentMessages.innerHTML += `<div class="flex justify-end"><div class="max-w-[75%] p-3 rounded-2xl bg-primary text-primary-foreground text-sm">${escapeHtml(text)}</div></div>`
+    }
+    subagentInput.value = ''
+    subagentSend.disabled = true
+
+    if (isElectron) {
+      try {
+        const prefix = `[Sub-Agent: ${selectedAgent}] `
+        const reply = await ipc.invoke('chat-with-ai', prefix + text)
+        if (subagentMessages) {
+          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-card border border-border text-sm"><span class="text-[10px] font-bold text-primary uppercase block mb-1">${escapeHtml(selectedAgent)}</span>${escapeHtml(reply || 'No response')}</div></div>`
+          subagentMessages.scrollTop = subagentMessages.scrollHeight
+        }
+      } catch (err) {
+        if (subagentMessages) {
+          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-500">Error: ${err.message || 'Failed to reach AI'}</div></div>`
+        }
+      }
+    } else {
+      if (subagentMessages) {
+        subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-card border border-border text-sm">Sub Agent chat requires Electron backend. Running in demo mode.</div></div>`
+      }
+    }
+  }
 
   if (subagentInput) {
     subagentInput.addEventListener('input', () => {
@@ -491,18 +629,12 @@
     subagentInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
-        if (subagentInput.value.trim()) {
-          alert('Sub Agent API integration requires backend configuration.')
-          subagentInput.value = ''
-          subagentSend.disabled = true
-        }
+        sendSubAgentMessage()
       }
     })
   }
   if (subagentSend) {
-    subagentSend.addEventListener('click', () => {
-      alert('Sub Agent API integration requires backend configuration.')
-    })
+    subagentSend.addEventListener('click', sendSubAgentMessage)
   }
 
   // --- Scan System Button (REAL data from Electron) ---
@@ -529,20 +661,37 @@
       const apps = await ipc.invoke('get-installed-apps')
       const appsGrid = document.getElementById('apps-grid')
       if (apps && apps.length > 0 && appsGrid) {
-        // Populate bottom grid
+        // Helper to generate a consistent color based on string
+        const stringToColor = (str) => {
+          let hash = 0;
+          for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+          const hue = Math.abs(hash) % 360;
+          return `hsl(${hue}, 70%, 60%)`;
+        };
+
+        // Populate bottom grid with all apps
         appsGrid.innerHTML = apps
-          .slice(0, 50)
           .map(
-            (a) => `
+            (a) => {
+              const letter = (a.name || 'A').charAt(0).toUpperCase();
+              const color = stringToColor(a.name);
+              const isAllowed = Math.random() > 0.3; // Default randomly for demo, or all true
+              return `
                     <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="${escapeHtml(a.name)}">
                         <div class="flex items-center gap-2 md:gap-3 min-w-0">
-                            <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-accent flex items-center justify-center shrink-0 text-primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 md:w-5 md:h-5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                            <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 text-white shadow-sm font-bold text-lg md:text-xl" style="background-color: ${color}">
+                                ${letter}
                             </div>
                             <span class="font-bold text-xs md:text-sm truncate">${escapeHtml(a.name)}</span>
                         </div>
+                        <button onclick="this.dataset.allowed = this.dataset.allowed === 'true' ? 'false' : 'true'; this.textContent = this.dataset.allowed === 'true' ? 'Allowed' : 'Denied'; this.className = 'app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all ' + (this.dataset.allowed === 'true' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500')" 
+                                class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all ${isAllowed ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}" 
+                                data-allowed="${isAllowed}">
+                            ${isAllowed ? 'Allowed' : 'Denied'}
+                        </button>
                     </div>
                 `
+            }
           )
           .join('')
 
@@ -584,24 +733,24 @@
   async function loadQuarantine() {
     if (!isElectron || !quarantineListEl) return
     try {
-      const items = await ipc.invoke('quarantine-list')
+      const items = await ipc.invoke('get-defender-quarantine')
       if (!items || items.length === 0) {
         quarantineListEl.innerHTML =
-          '<div class="p-6 text-center border-2 border-dashed border-border rounded-2xl opacity-50"><p class="text-sm font-medium">🛡️ No files in quarantine.</p><p class="text-xs opacity-50 mt-1">Suspicious files will appear here for your review.</p></div>'
+          '<div class="p-6 text-center border-2 border-dashed border-border rounded-2xl opacity-50"><p class="text-sm font-medium">🛡️ No threats detected by Windows Defender.</p><p class="text-xs opacity-50 mt-1">System is clean.</p></div>'
         return
       }
       quarantineListEl.innerHTML = items
         .map(
           (item) => `
-                <div class="flex items-center justify-between p-4 rounded-xl bg-background border border-amber-500/20 hover:border-amber-500/40 transition-colors" data-qid="${item.id}">
+                <div class="flex items-center justify-between p-4 rounded-xl bg-background border border-amber-500/20 hover:border-amber-500/40 transition-colors">
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-bold truncate">${item.originalPath.split('\\\\').pop() || item.originalPath.split('/').pop()}</p>
-                        <p class="text-[10px] opacity-50 truncate">${item.reason}</p>
-                        <p class="text-[10px] opacity-30">${new Date(item.timestamp).toLocaleString()}</p>
+                        <p class="text-sm font-bold truncate text-rose-500">${escapeHtml(item.ThreatName || 'Unknown Threat')}</p>
+                        <p class="text-[10px] opacity-50 truncate">${escapeHtml((item.Resources || []).join(', ') || 'No resources available')}</p>
+                        <p class="text-[10px] opacity-30">${item.InitialDetectionTime ? new Date(parseInt(item.InitialDetectionTime.replace(/[^0-9]/g, ''), 10)).toLocaleString() : 'Unknown Date'}</p>
                     </div>
-                    <div class="flex gap-2 ml-3 shrink-0">
-                        <button onclick="restoreQuarantined('${item.id}')" class="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-bold hover:bg-emerald-500 hover:text-white transition-all">Restore</button>
-                        <button onclick="deleteQuarantined('${item.id}')" class="px-3 py-1 bg-rose-500/10 text-rose-500 rounded-lg text-[10px] font-bold hover:bg-rose-500 hover:text-white transition-all">Delete</button>
+                    <div class="flex gap-2 ml-3 shrink-0 flex-col sm:flex-row">
+                        <button onclick="restoreQuarantined('${escapeHtml(item.ThreatName)}')" class="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-[10px] font-bold hover:bg-emerald-500 hover:text-white transition-all">Restore</button>
+                        <button onclick="deleteQuarantined('${escapeHtml(item.ThreatName)}')" class="px-3 py-1 bg-rose-500/10 text-rose-500 rounded-lg text-[10px] font-bold hover:bg-rose-500 hover:text-white transition-all">Remove</button>
                     </div>
                 </div>
             `
@@ -614,23 +763,85 @@
 
   window.restoreQuarantined = async function (id) {
     if (!isElectron) return
-    await ipc.invoke('quarantine-restore', id)
+    const btn = event.target;
+    btn.textContent = 'Wait...';
+    await ipc.invoke('restore-defender-quarantine', id)
     loadQuarantine()
   }
 
   window.deleteQuarantined = async function (id) {
     if (!isElectron) return
-    await ipc.invoke('quarantine-delete', id)
+    const btn = event.target;
+    btn.textContent = 'Wait...';
+    await ipc.invoke('remove-defender-quarantine', id)
     loadQuarantine()
   }
 
-  if (refreshQuarantineBtn) refreshQuarantineBtn.addEventListener('click', loadQuarantine)
-  // Auto-load on settings tab open
+  async function loadSecurityStatus() {
+    if (!isElectron) return;
+    try {
+      const status = await ipc.invoke('get-security-status');
+      if (status) {
+        const fw = document.getElementById('sec-firewall');
+        if (fw) {
+          fw.textContent = status.firewall;
+          fw.className = `text-sm font-bold ${status.firewall === 'ACTIVE' ? 'text-emerald-500' : 'text-rose-500'}`;
+        }
+        
+        const av = document.getElementById('sec-antivirus');
+        if (av) {
+          av.textContent = status.antivirus;
+          av.className = `text-sm font-bold ${status.antivirus === 'ACTIVE' ? 'text-emerald-500' : 'text-rose-500'}`;
+        }
+
+        const ls = document.getElementById('sec-lastscan');
+        if (ls) {
+          ls.textContent = status.lastScan <= 1 ? 'Today' : `${status.lastScan} days ago`;
+        }
+        
+        const thr = document.getElementById('sec-threats');
+        if (thr) {
+          const items = await ipc.invoke('get-defender-quarantine');
+          const count = items && items.length ? items.length : 0;
+          thr.textContent = count === 0 ? 'None' : count;
+          thr.className = `text-sm font-bold ${count === 0 ? 'text-emerald-500' : 'text-rose-500'}`;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load security status:', e);
+    }
+  }
+
+  if (refreshQuarantineBtn) refreshQuarantineBtn.addEventListener('click', () => { loadQuarantine(); loadSecurityStatus(); });
+  // Auto-load on settings/privacy tab open
   document
     .querySelector('[data-tab="settings"]')
-    ?.addEventListener('click', () => setTimeout(loadQuarantine, 200))
+    ?.addEventListener('click', () => {
+      setTimeout(() => {
+        loadQuarantine();
+        loadSecurityStatus();
+      }, 200);
+    })
 
-  // ========= SAVE AGENT API KEYS =========
+  const runFullScanBtn = document.getElementById('run-full-scan-btn')
+  if (runFullScanBtn) {
+    runFullScanBtn.addEventListener('click', async () => {
+      runFullScanBtn.disabled = true;
+      runFullScanBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin inline mr-2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> SCANNING...';
+      const success = await ipc.invoke('run-full-scan');
+      if (success) {
+        runFullScanBtn.innerHTML = 'SCAN STARTED!';
+      } else {
+        runFullScanBtn.innerHTML = 'SCAN FAILED';
+      }
+      setTimeout(() => {
+        runFullScanBtn.innerHTML = 'RUN FULL SYSTEM SCAN';
+        runFullScanBtn.disabled = false;
+      }, 5000);
+    });
+  }
+
+  // ========= SAVE AGENT API KEYS (includes Telegram/Email) =========
   const saveAgentBtn = document.getElementById('save-agent-config')
   if (saveAgentBtn) {
     saveAgentBtn.addEventListener('click', async () => {
@@ -648,7 +859,15 @@
           key: document.getElementById('code-api-key')?.value || ''
         },
         tavily: document.getElementById('tavily-api-key')?.value || '',
-        image: document.getElementById('image-api-key')?.value || ''
+        image: document.getElementById('image-api-key')?.value || '',
+        telegram: {
+          token: document.getElementById('telegram-token')?.value || '',
+          chatId: document.getElementById('telegram-chat-id')?.value || ''
+        },
+        email: {
+          address: document.getElementById('email-address')?.value || '',
+          password: document.getElementById('email-password')?.value || ''
+        }
       }
 
       if (isElectron) {
@@ -673,6 +892,84 @@
         alert('API key encryption requires the Electron app. Running in demo mode.')
       }
     })
+  }
+
+  // ========= LOAD SAVED KEYS (populate Settings fields) =========
+  async function loadSavedKeys() {
+    if (!isElectron) return
+    try {
+      const keys = await ipc.invoke('secure-get-keys')
+      if (keys && keys.groqKey) {
+        try {
+          const config = JSON.parse(keys.groqKey)
+          if (config.brain?.provider) { const el = document.getElementById('brain-provider'); if (el) el.value = config.brain.provider }
+          if (config.brain?.key) { const el = document.getElementById('brain-api-key'); if (el) el.value = config.brain.key }
+          if (config.vision?.provider) { const el = document.getElementById('vision-provider'); if (el) el.value = config.vision.provider }
+          if (config.vision?.key) { const el = document.getElementById('vision-api-key'); if (el) el.value = config.vision.key }
+          if (config.code?.provider) { const el = document.getElementById('code-provider'); if (el) el.value = config.code.provider }
+          if (config.code?.key) { const el = document.getElementById('code-api-key'); if (el) el.value = config.code.key }
+          if (config.tavily) { const el = document.getElementById('tavily-api-key'); if (el) el.value = config.tavily }
+          if (config.image) { const el = document.getElementById('image-api-key'); if (el) el.value = config.image }
+          if (config.telegram?.token) { const el = document.getElementById('telegram-token'); if (el) el.value = config.telegram.token }
+          if (config.telegram?.chatId) { const el = document.getElementById('telegram-chat-id'); if (el) el.value = config.telegram.chatId }
+          if (config.email?.address) { const el = document.getElementById('email-address'); if (el) el.value = config.email.address }
+          if (config.email?.password) { const el = document.getElementById('email-password'); if (el) el.value = config.email.password }
+        } catch (parseErr) { /* config wasn't JSON, skip */ }
+      }
+    } catch (e) { console.error('Load keys failed:', e) }
+  }
+
+  // ========= EXTERNAL INTEGRATIONS SAVE/EDIT TOGGLE =========
+  const saveIntBtn = document.getElementById('save-integrations-btn')
+  const intFields = document.getElementById('integration-fields')
+  let intEditMode = false
+
+  function setIntegrationFieldsEnabled(enabled) {
+    if (!intFields) return
+    intFields.querySelectorAll('input').forEach(inp => {
+      inp.disabled = !enabled
+      inp.style.opacity = enabled ? '1' : '0.6'
+    })
+  }
+
+  // Check if any integration data already exists on load
+  function updateIntBtnState() {
+    if (!intFields || !saveIntBtn) return
+    const hasData = Array.from(intFields.querySelectorAll('input')).some(i => i.value.trim())
+    if (hasData && !intEditMode) {
+      saveIntBtn.textContent = '✏️ Edit Integrations'
+      setIntegrationFieldsEnabled(false)
+    } else if (!hasData) {
+      saveIntBtn.textContent = '💾 Save All'
+      setIntegrationFieldsEnabled(true)
+      intEditMode = true
+    }
+  }
+
+  if (saveIntBtn) {
+    saveIntBtn.addEventListener('click', async () => {
+      if (!intEditMode) {
+        // Switch to edit mode
+        intEditMode = true
+        setIntegrationFieldsEnabled(true)
+        saveIntBtn.textContent = '💾 Save All'
+        intFields?.querySelector('input')?.focus()
+      } else {
+        // Save mode — trigger the main save
+        if (saveAgentBtn) saveAgentBtn.click()
+        intEditMode = false
+        setIntegrationFieldsEnabled(false)
+        saveIntBtn.textContent = '✅ Saved!'
+        setTimeout(() => { saveIntBtn.textContent = '✏️ Edit Integrations' }, 2000)
+      }
+    })
+  }
+
+  // After loading keys, update integration button state
+  const origLoadSavedKeys = loadSavedKeys
+  loadSavedKeys = async function() {
+    await origLoadSavedKeys()
+    setTimeout(updateIntBtnState, 100)
   }
 
   // ========= MIC TOGGLE (Voice Input) =========
@@ -866,10 +1163,9 @@
   if (btnDeepResearch) {
     btnDeepResearch.addEventListener('click', () => {
       if (isElectron) {
-        // IPC call to launch deep research window or just alert for now since we don't have the exact launch logic yet
-        alert(
-          'Deep Research Widget activated. This connects to Tavily & Groq in the backend for automated large-scale querying.'
-        )
+        // Switch to Research tab
+        const researchTab = document.querySelector('[data-tab="research"]')
+        if (researchTab) researchTab.click()
       } else {
         alert('Deep Research requires Electron backend.')
       }
@@ -879,28 +1175,45 @@
   if (btnLiveCode) {
     btnLiveCode.addEventListener('click', async () => {
       if (isElectron) {
-        alert(
-          'Live Coding module activated. Send a prompt via AI chat to start inline coding generation.'
-        )
-        // Here we might eventually load the coder UI panel explicitly
+        // Switch to chat tab with coding context
+        const chatTab = document.querySelector('[data-tab="chat"]')
+        if (chatTab) chatTab.click()
+        if (chatInput) {
+          chatInput.value = '[Code Mode] '
+          chatInput.focus()
+        }
       }
     })
   }
 
   if (btnSmartDropzones) {
-    btnSmartDropzones.addEventListener('click', () => {
-      alert(
-        'Smart DropZones configuration launched. You can now drag and drop files onto floating targets across your desktop.'
-      )
+    btnSmartDropzones.addEventListener('click', async () => {
+      if (isElectron) {
+        try {
+          await ipc.invoke('dropzone-toggle')
+          btnSmartDropzones.textContent = '✅ DropZones Active'
+          setTimeout(() => { btnSmartDropzones.textContent = 'Configure Zones' }, 2000)
+        } catch (e) {
+          btnSmartDropzones.textContent = 'Configure Zones'
+          console.error('DropZone error:', e)
+        }
+      }
     })
   }
 
   if (btnGhostControl) {
-    btnGhostControl.addEventListener('click', () => {
+    btnGhostControl.addEventListener('click', async () => {
       if (isElectron) {
-        alert(
-          'Ghost Control (Phantom Control) sequence initiated. You can also trigger this via Ctrl+Alt+Space. Proceed with high caution.'
-        )
+        if (confirm('⚠️ Ghost Control allows AI to simulate keyboard and mouse. Enable?')) {
+          try {
+            await ipc.invoke('ghost-toggle', { enabled: true })
+            btnGhostControl.textContent = '🔴 Ghost Active'
+            btnGhostControl.classList.remove('bg-rose-600')
+            btnGhostControl.classList.add('bg-rose-800', 'animate-pulse')
+          } catch (e) {
+            console.error('Ghost control error:', e)
+          }
+        }
       } else {
         alert('Ghost Control requires Native OS access.')
       }
@@ -1128,16 +1441,36 @@
   }
 
   // Alerts Tab
+  async function loadAlerts() {
+    if (!isElectron) return
+    try {
+      const alerts = await ipc.invoke('alerts-list')
+      const alertsList = document.getElementById('alerts-list')
+      if (!alertsList) return
+      if (!alerts || alerts.length === 0) {
+        alertsList.innerHTML = '<div class="p-12 text-center border-2 border-dashed border-border rounded-3xl opacity-50"><p class="text-sm font-medium">No active alerts or notifications.</p></div>'
+        return
+      }
+      alertsList.innerHTML = alerts.map(a => `
+        <div class="p-4 rounded-2xl border bg-card border-border shadow-sm flex items-center gap-4">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg ${a.type === 'error' ? 'bg-rose-500/10 text-rose-500' : a.type === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}">
+            ${a.type === 'error' ? '🚨' : a.type === 'warning' ? '⚠️' : 'ℹ️'}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-bold truncate">${escapeHtml(a.title || a.message || 'Alert')}</p>
+            <p class="text-xs opacity-50">${a.timestamp ? new Date(a.timestamp).toLocaleString() : ''}</p>
+          </div>
+        </div>
+      `).join('')
+    } catch (e) { console.error('Load alerts failed:', e) }
+  }
+
   if (clearAlertsBtn) {
     clearAlertsBtn.addEventListener('click', async () => {
       if (isElectron) {
         try {
           await ipc.invoke('alerts-clear')
-          const alertsList = document.getElementById('alerts-list')
-          if (alertsList) {
-            alertsList.innerHTML =
-              '<div class="p-6 text-center opacity-50"><p class="text-sm">No alerts</p></div>'
-          }
+          loadAlerts()
         } catch (err) {
           console.error('Clear alerts failed:', err)
         }
@@ -1209,7 +1542,18 @@
     appSearchInput.addEventListener('input', () => {
       const term = appSearchInput.value.toLowerCase()
       document.querySelectorAll('.app-item').forEach((item) => {
-        const name = item.dataset.name.toLowerCase()
+        const name = (item.dataset.name || '').toLowerCase()
+        item.style.display = name.includes(term) ? '' : 'none'
+      })
+    })
+  }
+
+  // Also wire up the detailed tab's app-search input
+  if (appSearch) {
+    appSearch.addEventListener('input', () => {
+      const term = appSearch.value.toLowerCase()
+      document.querySelectorAll('#apps-grid .app-item').forEach((item) => {
+        const name = (item.dataset.name || '').toLowerCase()
         item.style.display = name.includes(term) ? '' : 'none'
       })
     })
@@ -1218,15 +1562,27 @@
   // Phone Link Tab
   if (connectPhoneBtn) {
     connectPhoneBtn.addEventListener('click', async () => {
-      const ip = adbIp.value.trim()
-      const port = adbPort.value.trim() || '5555'
+      const ip = adbIp ? adbIp.value.trim() : ''
+      const port = adbPort ? adbPort.value.trim() || '5555' : '5555'
       if (!ip) return
 
       if (isElectron) {
         try {
-          const success = await ipc.invoke('adb-connect', { ip, port })
-          alert(success ? 'Phone connected successfully' : 'Connection failed')
+          connectPhoneBtn.textContent = 'Connecting...'
+          connectPhoneBtn.disabled = true
+          const res = await ipc.invoke('adb-connect', { ip, port })
+          if (res && res.success) {
+            connectPhoneBtn.textContent = '✅ Connected'
+            connectPhoneBtn.classList.remove('bg-primary')
+            connectPhoneBtn.classList.add('bg-emerald-500')
+          } else {
+            connectPhoneBtn.textContent = 'Connect'
+            alert('Connection failed: ' + (res?.error || 'Unknown error'))
+          }
+          connectPhoneBtn.disabled = false
         } catch (err) {
+          connectPhoneBtn.textContent = 'Connect'
+          connectPhoneBtn.disabled = false
           console.error('ADB connect failed:', err)
         }
       }
@@ -1237,7 +1593,7 @@
     phoneHomeBtn.addEventListener('click', async () => {
       if (isElectron) {
         try {
-          await ipc.invoke('adb-action', { action: 'home' })
+          await ipc.invoke('adb-quick-action', { action: 'home' })
         } catch (err) {
           console.error('ADB home failed:', err)
         }
@@ -1249,7 +1605,7 @@
     phoneBackBtn.addEventListener('click', async () => {
       if (isElectron) {
         try {
-          await ipc.invoke('adb-action', { action: 'back' })
+          await ipc.invoke('adb-quick-action', { action: 'back' })
         } catch (err) {
           console.error('ADB back failed:', err)
         }
@@ -1261,7 +1617,7 @@
     phoneRecentBtn.addEventListener('click', async () => {
       if (isElectron) {
         try {
-          await ipc.invoke('adb-action', { action: 'recent' })
+          await ipc.invoke('adb-quick-action', { action: 'recent' })
         } catch (err) {
           console.error('ADB recent failed:', err)
         }
@@ -1273,7 +1629,7 @@
     phonePowerBtn.addEventListener('click', async () => {
       if (isElectron) {
         try {
-          await ipc.invoke('adb-action', { action: 'power' })
+          await ipc.invoke('adb-quick-action', { action: 'power' })
         } catch (err) {
           console.error('ADB power failed:', err)
         }
@@ -1285,10 +1641,10 @@
     phoneScreenshotBtn.addEventListener('click', async () => {
       if (isElectron) {
         try {
-          const screenshot = await ipc.invoke('adb-screenshot')
-          if (screenshot) {
+          const result = await ipc.invoke('adb-screenshot')
+          if (result && result.success && result.image) {
             const img = document.createElement('img')
-            img.src = screenshot
+            img.src = result.image
             img.className = 'max-w-full rounded-lg'
             const phoneScreenshotDisplay = document.getElementById('phone-screenshot-display')
             if (phoneScreenshotDisplay) {
