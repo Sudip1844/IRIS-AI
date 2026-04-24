@@ -108,14 +108,43 @@
       if (tabId === 'monitor' && isPowerOn) {
         updateStats()
       }
-      if (tabId === 'alerts' && isElectron) {
-        loadAlerts()
-      }
       if (tabId === 'settings' && isElectron) {
         loadSavedKeys()
       }
+      // Auto-load alerts when widgets tab opens (alerts is a sub-tab)
+      if (tabId === 'widgets' && isElectron) {
+        loadAlerts()
+      }
     })
   })
+
+  // --- Widgets & Tools Sub-Tab Switching ---
+  const wtSubtabs = document.querySelectorAll('.wt-subtab')
+  const wtSubpanels = document.querySelectorAll('.wt-subpanel')
+
+  wtSubtabs.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.wtsub
+      // Update active pill styling
+      wtSubtabs.forEach((b) => {
+        b.classList.remove('active-subtab')
+        b.classList.remove('bg-primary', 'text-white', 'shadow-lg', 'shadow-primary/20')
+        b.classList.add('bg-card', 'border', 'border-border', 'hover:border-primary/50')
+      })
+      btn.classList.add('active-subtab')
+      btn.classList.remove('bg-card', 'border', 'border-border', 'hover:border-primary/50')
+      btn.classList.add('bg-primary', 'text-white', 'shadow-lg', 'shadow-primary/20')
+      // Show matching panel
+      wtSubpanels.forEach((p) => {
+        p.style.display = p.id === target ? 'block' : 'none'
+      })
+      // Auto-load data for specific sub-tabs
+      if (target === 'wt-alerts' && isElectron) {
+        loadAlerts()
+      }
+    })
+  })
+
 
   // --- Sidebar Toggle ---
   sidebarToggle.addEventListener('click', () => {

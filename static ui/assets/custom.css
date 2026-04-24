@@ -55,10 +55,8 @@
     display: flex;
 }
 #tab-monitor.active,
-#tab-visualizer.active,
-#tab-alerts.active,
-#tab-privacy.active,
 #tab-apps.active,
+#tab-widgets.active,
 #tab-settings.active {
     display: block;
 }
@@ -366,4 +364,32 @@ body.sidebar-expanded #theme-toggle {
     transform: translate(-50%, -50%) scale(1.8);
     opacity: 0;
   }
+}
+
+/* ===== Widgets & Tools Sub-tab bar ===== */
+#wt-subtab-bar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar) transparent;
+}
+#wt-subtab-bar::-webkit-scrollbar { height: 4px; }
+#wt-subtab-bar::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 10px; }
+#wt-subtab-bar::-webkit-scrollbar-track { background: transparent; }
+
+/* Sub-panel fade-in */
+.wt-subpanel {
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* ===== Toggle Button (Privacy Permissions) ===== */
+.toggle-btn {
+    cursor: pointer;
+    border: none;
+    outline: none;
+    position: relative;
+}
+.toggle-btn[data-active="false"] {
+    background: var(--muted) !important;
+}
+.toggle-btn[data-active="false"] > div {
+    transform: translateX(0) !important;
 }
