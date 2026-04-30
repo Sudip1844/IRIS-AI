@@ -65,18 +65,10 @@
 .logo-pulse {
     animation: logoPulse 3s ease-in-out infinite;
 }
-@keyframes logoPulse {
-    0%, 100% { opacity: 0.05; }
-    50% { opacity: 0.15; }
-}
 
 /* Visualizer pulse animation */
 .animate-pulse-scale {
     animation: pulseScale 2s ease-in-out infinite;
-}
-@keyframes pulseScale {
-    0%, 100% { transform: scale(1); opacity: 0.5; }
-    50% { transform: scale(1.5); opacity: 0.2; }
 }
 
 /* Visualizer: Wave */
@@ -97,10 +89,6 @@
 .viz-wave .bar:nth-child(3) { animation-delay: 0.2s; }
 .viz-wave .bar:nth-child(4) { animation-delay: 0.3s; }
 .viz-wave .bar:nth-child(5) { animation-delay: 0.4s; }
-@keyframes waveBar {
-    0% { height: 8px; }
-    100% { height: 24px; }
-}
 
 /* Visualizer: Bars */
 .viz-bars {
@@ -121,8 +109,6 @@
 .viz-bars .bar:nth-child(4) { animation-delay: 0.15s; height: 22px; }
 .viz-bars .bar:nth-child(5) { animation-delay: 0.2s; height: 8px; }
 .viz-bars .bar:nth-child(6) { animation-delay: 0.25s; height: 16px; }
-@keyframes barsAnim {
-    0% { height: 4px; }
     100% { height: 28px; }
 }
 
@@ -392,4 +378,14 @@ body.sidebar-expanded #theme-toggle {
 }
 .toggle-btn[data-active="false"] > div {
     transform: translateX(0) !important;
+}
+}
+
+/* Checkbox Toggle CSS */
+input:checked ~ .dot {
+    transform: translateX(100%);
+    background-color: var(--color-primary);
+}
+input:checked ~ .block {
+    background-color: rgba(233, 69, 96, 0.2);
 }

@@ -13,16 +13,16 @@
 
   // --- State ---
   let isPowerOn = false
-  let isDarkMode = false
+  let isDarkMode = localStorage.getItem('theme') === 'dark'
   let isSidebarExpanded = false
   let statsInterval = null
+
+  // --- Utility Functions ---
+  // Note: showToast and Theme initialization are now in ui-utils.js
 
   // --- DOM refs ---
   const sidebar = document.getElementById('sidebar')
   const sidebarToggle = document.getElementById('sidebar-toggle')
-  const themeToggle = document.getElementById('theme-toggle')
-  const iconSun = document.getElementById('icon-sun')
-  const iconMoon = document.getElementById('icon-moon')
   const powerBtn = document.getElementById('power-btn')
   const coreStatus = document.getElementById('core-status')
   const voiceStatus = document.getElementById('voice-status')
@@ -163,13 +163,6 @@
   window.addEventListener('resize', handleResize)
   handleResize()
 
-  // --- Theme Toggle ---
-  themeToggle.addEventListener('click', () => {
-    isDarkMode = !isDarkMode
-    document.documentElement.classList.toggle('dark', isDarkMode)
-    iconSun.style.display = isDarkMode ? 'none' : ''
-    iconMoon.style.display = isDarkMode ? '' : 'none'
-  })
 
   // --- Power Button ---
   powerBtn.addEventListener('click', () => {
@@ -335,27 +328,92 @@
     chatMessages.appendChild(thinkingEl)
     chatMessages.scrollTop = chatMessages.scrollHeight
 
+    let replyText = 'No response.';
+
+    const lowerText = text.toLowerCase();
+    if (isElectron && lowerText.startsWith('play ') && lowerText.includes(' on spotify')) {
+      const songName = lowerText.replace('play ', '').replace(' on spotify', '').trim();
+      try {
+        const result = await ipc.invoke('play-spotify-music', songName);
+        thinkingEl.remove();
+        appendMessage('mj', result);
+        speakAndAnimate(result);
+        saveChatHistory(text, result);
+      } catch (err) {
+        thinkingEl.remove();
+        const errTxt = 'Backend error: ' + err.message;
+        appendMessage('error', errTxt);
+      }
+      return;
+    }
+
     if (isElectron) {
-      // Route the chat message through the IRIS AI backend
       try {
         const result = await ipc.invoke('chat-with-ai', text)
+        replyText = result || 'No response.'
         thinkingEl.remove()
-        appendMessage('mj', result || 'No response.')
-        speakAndAnimate(result || 'No response.')
+        appendMessage('mj', replyText)
+        speakAndAnimate(replyText)
       } catch (err) {
         thinkingEl.remove()
-        appendMessage('error', 'Backend error: ' + err.message)
+        replyText = 'Backend error: ' + err.message;
+        appendMessage('error', replyText)
       }
     } else {
-      // Static demo fallback
-      setTimeout(() => {
-        thinkingEl.remove()
-        const reply = 'I received: "' + text + '". Connect to Electron backend for full AI functionality.';
-        appendMessage('mj', reply)
-        speakAndAnimate(reply)
-      }, 1500)
+      await new Promise(r => setTimeout(r, 1500));
+      thinkingEl.remove()
+      replyText = 'I received: "' + text + '". Connect to Electron backend for full AI functionality.';
+      appendMessage('mj', replyText)
+      speakAndAnimate(replyText)
     }
+
+    saveChatHistory(text, replyText);
   }
+
+  function saveChatHistory(userText, aiReply) {
+    let history = [];
+    try {
+      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]');
+    } catch(e) {}
+    history.push({ user: userText, ai: aiReply, time: new Date().toISOString() });
+    if(history.length > 50) history.shift(); // Keep last 50
+    localStorage.setItem('mj_chat_history', JSON.stringify(history));
+    renderChatHistory();
+  }
+
+  function renderChatHistory() {
+    const list = document.getElementById('chat-history-list');
+    if (!list) return;
+    let history = [];
+    try {
+      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]');
+    } catch(e) {}
+    
+    if (history.length === 0) {
+      list.innerHTML = '<button class="text-left text-xs p-2 rounded-lg hover:bg-accent truncate w-full text-muted-foreground opacity-50">No history available</button>';
+      return;
+    }
+
+    list.innerHTML = history.slice().reverse().map(h => `
+      <button class="text-left text-xs p-2 rounded-lg hover:bg-accent truncate w-full text-muted-foreground transition-colors group relative" title="${escapeHtml(h.user)}">
+        <span class="font-semibold text-foreground block truncate">${escapeHtml(h.user)}</span>
+        <span class="opacity-50 text-[10px] truncate block">${escapeHtml(h.ai).substring(0, 40)}...</span>
+      </button>
+    `).join('');
+  }
+
+  const clearChatHistoryBtn = document.getElementById('clear-chat-history');
+  if (clearChatHistoryBtn) {
+    clearChatHistoryBtn.addEventListener('click', () => {
+      if(confirm('Clear all chat history?')) {
+        localStorage.removeItem('mj_chat_history');
+        renderChatHistory();
+      }
+    });
+  }
+
+  // Initial load
+  renderChatHistory();
 
   let visualizerInterval = null;
   function speakAndAnimate(text) {
@@ -439,6 +497,8 @@
         'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 w-full text-center italic'
     }
 
+    const parsedContent = typeof marked !== 'undefined' ? marked.parse(text) : '<p>' + escapeHtml(text) + '</p>'
+
     wrapper.innerHTML =
       '<div class="flex items-center gap-2 px-2">' +
       headerHTML +
@@ -446,9 +506,9 @@
       '<div class="max-w-[90%] md:max-w-[85%] rounded-2xl p-3 md:p-4 text-xs md:text-sm leading-relaxed shadow-sm ' +
       bubbleClass +
       '">' +
-      '<div class="prose prose-sm max-w-none"><p>' +
-      escapeHtml(text) +
-      '</p></div></div>'
+      '<div class="prose prose-sm max-w-none">' +
+      parsedContent +
+      '</div></div>'
 
     chatMessages.appendChild(wrapper)
     chatMessages.scrollTop = chatMessages.scrollHeight
@@ -465,17 +525,42 @@
   if (fileInput) {
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          previewImg.src = reader.result
-          imagePreview.style.display = 'flex'
-          sendBtn.disabled = false
-        }
-        reader.readAsDataURL(file)
+      if (file) handleImageFile(file)
+    })
+  }
+  
+  if (chatInput) {
+    chatInput.addEventListener('dragover', (e) => {
+      e.preventDefault()
+      chatInput.classList.add('border-primary', 'bg-primary/5')
+    })
+    chatInput.addEventListener('dragleave', (e) => {
+      e.preventDefault()
+      chatInput.classList.remove('border-primary', 'bg-primary/5')
+    })
+    chatInput.addEventListener('drop', (e) => {
+      e.preventDefault()
+      chatInput.classList.remove('border-primary', 'bg-primary/5')
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleImageFile(e.dataTransfer.files[0])
       }
     })
   }
+
+  function handleImageFile(file) {
+    if (!file.type.startsWith('image/')) {
+      showToast('Please upload an image file.', 'error')
+      return
+    }
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      previewImg.src = reader.result
+      imagePreview.style.display = 'flex'
+      sendBtn.disabled = false
+    }
+    reader.readAsDataURL(file)
+  }
+
   if (removeImage) {
     removeImage.addEventListener('click', () => {
       previewImg.src = ''
@@ -761,6 +846,9 @@
 
   async function loadQuarantine() {
     if (!isElectron || !quarantineListEl) return
+    
+    quarantineListEl.innerHTML = '<div class="p-6 text-center opacity-50"><p class="text-sm font-medium animate-pulse">Scanning Windows Defender Quarantine...</p></div>'
+    
     try {
       const items = await ipc.invoke('get-defender-quarantine')
       if (!items || items.length === 0) {
@@ -835,6 +923,22 @@
           thr.textContent = count === 0 ? 'None' : count;
           thr.className = `text-sm font-bold ${count === 0 ? 'text-emerald-500' : 'text-rose-500'}`;
         }
+      } else {
+        const elements = ['sec-firewall', 'sec-antivirus'];
+        elements.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.textContent = 'OFFLINE';
+            el.className = 'text-sm font-bold text-rose-500';
+          }
+        });
+        const ls = document.getElementById('sec-lastscan');
+        if (ls) ls.textContent = 'Unknown';
+        const thr = document.getElementById('sec-threats');
+        if (thr) {
+          thr.textContent = 'Unknown';
+          thr.className = 'text-sm font-bold text-rose-500';
+        }
       }
     } catch (e) {
       console.error('Failed to load security status:', e);
@@ -871,57 +975,68 @@
   }
 
   // ========= SAVE AGENT API KEYS (includes Telegram/Email) =========
-  const saveAgentBtn = document.getElementById('save-agent-config')
-  if (saveAgentBtn) {
-    saveAgentBtn.addEventListener('click', async () => {
-      const config = {
-        brain: {
-          provider: document.getElementById('brain-provider')?.value || 'google',
-          key: document.getElementById('brain-api-key')?.value || ''
-        },
-        vision: {
-          provider: document.getElementById('vision-provider')?.value || 'google',
-          key: document.getElementById('vision-api-key')?.value || ''
-        },
-        code: {
-          provider: document.getElementById('code-provider')?.value || 'anthropic',
-          key: document.getElementById('code-api-key')?.value || ''
-        },
-        tavily: document.getElementById('tavily-api-key')?.value || '',
-        image: document.getElementById('image-api-key')?.value || '',
-        telegram: {
-          token: document.getElementById('telegram-token')?.value || '',
-          chatId: document.getElementById('telegram-chat-id')?.value || ''
-        },
-        email: {
-          address: document.getElementById('email-address')?.value || '',
-          password: document.getElementById('email-password')?.value || ''
-        }
+  async function saveAllAgentConfigs() {
+    const config = {
+      brain: {
+        provider: document.getElementById('brain-provider')?.value || 'google',
+        key: document.getElementById('brain-api-key')?.value || ''
+      },
+      vision: {
+        provider: document.getElementById('vision-provider')?.value || 'google',
+        key: document.getElementById('vision-api-key')?.value || ''
+      },
+      code: {
+        provider: document.getElementById('code-provider')?.value || 'anthropic',
+        key: document.getElementById('code-api-key')?.value || ''
+      },
+      tavily: document.getElementById('tavily-api-key')?.value || '',
+      image: document.getElementById('image-api-key')?.value || '',
+      telegram: {
+        token: document.getElementById('telegram-token')?.value || '',
+        chatId: document.getElementById('telegram-chat-id')?.value || ''
+      },
+      email: {
+        address: document.getElementById('email-address')?.value || '',
+        password: document.getElementById('email-password')?.value || ''
       }
+    }
 
-      if (isElectron) {
-        try {
-          await ipc.invoke('secure-save-keys', {
-            groqKey: JSON.stringify(config),
-            geminiKey: config.brain.key
-          })
-          saveAgentBtn.textContent = '✅ Saved Successfully!'
-          saveAgentBtn.classList.remove('bg-primary')
-          saveAgentBtn.classList.add('bg-emerald-500')
-          setTimeout(() => {
-            saveAgentBtn.innerHTML = '💾 SAVE ALL API KEYS (Encrypted)'
-            saveAgentBtn.classList.remove('bg-emerald-500')
-            saveAgentBtn.classList.add('bg-primary')
-          }, 2000)
-        } catch (e) {
-          saveAgentBtn.textContent = '❌ Save Failed'
-          setTimeout(() => (saveAgentBtn.innerHTML = '💾 SAVE ALL API KEYS (Encrypted)'), 2000)
-        }
-      } else {
-        alert('API key encryption requires the Electron app. Running in demo mode.')
+    if (isElectron) {
+      try {
+        await ipc.invoke('secure-save-keys', {
+          groqKey: JSON.stringify(config),
+          geminiKey: config.brain.key
+        })
+        showToast('API keys saved successfully', 'success')
+      } catch (e) {
+        showToast('Failed to save API keys', 'error')
       }
-    })
+    } else {
+      showToast('API key encryption requires the Electron app.', 'error');
+    }
   }
+
+  document.querySelectorAll('.agent-edit-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const targetId = btn.getAttribute('data-target');
+      const inputEl = document.getElementById(targetId);
+      if (!inputEl) return;
+      
+      if (inputEl.hasAttribute('readonly')) {
+        // Switch to edit mode
+        inputEl.removeAttribute('readonly');
+        inputEl.focus();
+        btn.textContent = 'Save';
+        btn.classList.add('bg-emerald-500/20', 'text-emerald-500');
+      } else {
+        // Save mode
+        inputEl.setAttribute('readonly', 'true');
+        btn.textContent = 'Edit';
+        btn.classList.remove('bg-emerald-500/20', 'text-emerald-500');
+        await saveAllAgentConfigs();
+      }
+    });
+  });
 
   // ========= LOAD SAVED KEYS (populate Settings fields) =========
   async function loadSavedKeys() {
@@ -948,58 +1063,7 @@
     } catch (e) { console.error('Load keys failed:', e) }
   }
 
-  // ========= EXTERNAL INTEGRATIONS SAVE/EDIT TOGGLE =========
-  const saveIntBtn = document.getElementById('save-integrations-btn')
-  const intFields = document.getElementById('integration-fields')
-  let intEditMode = false
-
-  function setIntegrationFieldsEnabled(enabled) {
-    if (!intFields) return
-    intFields.querySelectorAll('input').forEach(inp => {
-      inp.disabled = !enabled
-      inp.style.opacity = enabled ? '1' : '0.6'
-    })
-  }
-
-  // Check if any integration data already exists on load
-  function updateIntBtnState() {
-    if (!intFields || !saveIntBtn) return
-    const hasData = Array.from(intFields.querySelectorAll('input')).some(i => i.value.trim())
-    if (hasData && !intEditMode) {
-      saveIntBtn.textContent = '✏️ Edit Integrations'
-      setIntegrationFieldsEnabled(false)
-    } else if (!hasData) {
-      saveIntBtn.textContent = '💾 Save All'
-      setIntegrationFieldsEnabled(true)
-      intEditMode = true
-    }
-  }
-
-  if (saveIntBtn) {
-    saveIntBtn.addEventListener('click', async () => {
-      if (!intEditMode) {
-        // Switch to edit mode
-        intEditMode = true
-        setIntegrationFieldsEnabled(true)
-        saveIntBtn.textContent = '💾 Save All'
-        intFields?.querySelector('input')?.focus()
-      } else {
-        // Save mode — trigger the main save
-        if (saveAgentBtn) saveAgentBtn.click()
-        intEditMode = false
-        setIntegrationFieldsEnabled(false)
-        saveIntBtn.textContent = '✅ Saved!'
-        setTimeout(() => { saveIntBtn.textContent = '✏️ Edit Integrations' }, 2000)
-      }
-    })
-  }
-
-  // After loading keys, update integration button state
-  const origLoadSavedKeys = loadSavedKeys
-  loadSavedKeys = async function() {
-    await origLoadSavedKeys()
-    setTimeout(updateIntBtnState, 100)
-  }
+  // (Old EXTERNAL INTEGRATIONS SAVE/EDIT TOGGLE logic removed, now handled by individual edit buttons)
 
   // ========= MIC TOGGLE (Voice Input) =========
   const micBtn = document.getElementById('mic-btn')
@@ -1113,6 +1177,36 @@
   const phoneStorage = document.getElementById('phone-storage')
   const phoneTemp = document.getElementById('phone-temp')
   let adbTelemetryInterval = null
+  
+  // QR Code Elements
+  const adbQrBtn = document.getElementById('adb-qr-btn')
+  const qrModal = document.getElementById('qr-modal')
+  const closeQrBtn = document.getElementById('close-qr-btn')
+  const qrCanvas = document.getElementById('qr-canvas')
+
+  if (adbQrBtn && qrModal && closeQrBtn) {
+    adbQrBtn.addEventListener('click', () => {
+      qrModal.classList.remove('hidden')
+      qrModal.classList.add('flex')
+      // Generate QR for the current IP and Port (example format: tcpip://192.168.1.100:5555)
+      const ip = adbIpInput.value.trim() || '192.168.1.x'
+      const port = adbPortInput.value.trim() || '5555'
+      const qrText = `tcpip://${ip}:${port}`
+      
+      if (typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(qrCanvas, qrText, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } }, function (error) {
+          if (error) console.error(error)
+        })
+      } else {
+        showToast('QR Library failed to load.', 'error')
+      }
+    })
+
+    closeQrBtn.addEventListener('click', () => {
+      qrModal.classList.add('hidden')
+      qrModal.classList.remove('flex')
+    })
+  }
 
   if (phoneInfoBtn && phoneGuidePanel) {
     phoneInfoBtn.addEventListener('click', () => {
@@ -1139,7 +1233,7 @@
         startAdbTelemetry()
       } else {
         adbConnectBtn.textContent = 'CONNECT'
-        alert('Connection refused: ' + (res?.error || 'Ensure TCP/IP daemon is running.'))
+        showToast('Connection refused: ' + (res?.error || 'Ensure TCP/IP daemon is running.'), 'error')
       }
     })
   }
@@ -1196,7 +1290,7 @@
         const researchTab = document.querySelector('[data-tab="research"]')
         if (researchTab) researchTab.click()
       } else {
-        alert('Deep Research requires Electron backend.')
+        showToast('Deep Research requires Electron backend.', 'error');
       }
     })
   }
@@ -1244,7 +1338,7 @@
           }
         }
       } else {
-        alert('Ghost Control requires Native OS access.')
+        showToast('Ghost Control requires Native OS access.', 'error');
       }
     })
   }
@@ -1343,62 +1437,147 @@
   }
 
   // Biometric Tab
+  async function loadEnrolledFaces() {
+    if (!isElectron) return;
+    const enrolledContainer = document.getElementById('enrolled-faces');
+    if (!enrolledContainer) return;
+    
+    enrolledContainer.innerHTML = '<div class="text-sm opacity-50">Loading faces...</div>';
+    try {
+      const res = await ipc.invoke('biometric-list');
+      if (res && res.success && res.faces && res.faces.length > 0) {
+        enrolledContainer.innerHTML = res.faces.map(f => `
+          <div class="flex items-center gap-3 p-3 rounded-xl border border-border bg-background">
+            <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">${f.substring(0,2).toUpperCase()}</div>
+            <span class="text-sm font-medium">${f}</span>
+          </div>
+        `).join('');
+      } else {
+        enrolledContainer.innerHTML = '<div class="text-sm opacity-50">No faces enrolled yet.</div>';
+      }
+    } catch (err) {
+      console.error(err);
+      enrolledContainer.innerHTML = '<div class="text-sm text-rose-500">Failed to load faces.</div>';
+    }
+  }
+
+  // Hook into tab opening to load faces
+  document.querySelector('[data-tab="biometric"]')?.addEventListener('click', loadEnrolledFaces);
+
+  const biometricLockToggle = document.getElementById('biometric-lock-toggle');
+  let autoLockInterval = null;
+
+  async function checkCameraAndToggle(state) {
+    if (state) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasCamera = devices.some(d => d.kind === 'videoinput');
+        if (!hasCamera) {
+          showToast('No camera attached. Cannot enable Auto-Lock.', 'error');
+          biometricLockToggle.checked = false;
+          localStorage.setItem('biometricLock', 'false');
+          return;
+        }
+        showToast('Biometric Auto-Lock enabled.', 'success');
+        localStorage.setItem('biometricLock', 'true');
+        
+        // Start Auto-Lock loop (checks every 2 mins)
+        if (autoLockInterval) clearInterval(autoLockInterval);
+        autoLockInterval = setInterval(async () => {
+          if (isElectron) {
+            try {
+              const res = await ipc.invoke('biometric-test');
+              if (!res) {
+                 ipc.send('trigger-lockdown');
+              }
+            } catch(e) { console.error('Lock check failed', e) }
+          }
+        }, 120000);
+      } catch (err) {
+        showToast('Camera check failed.', 'error');
+        biometricLockToggle.checked = false;
+        localStorage.setItem('biometricLock', 'false');
+      }
+    } else {
+      showToast('Biometric Auto-Lock disabled.', 'info');
+      localStorage.setItem('biometricLock', 'false');
+      if (autoLockInterval) clearInterval(autoLockInterval);
+    }
+  }
+
+  if (biometricLockToggle) {
+    const isLockOn = localStorage.getItem('biometricLock') === 'true';
+    biometricLockToggle.checked = isLockOn;
+    if (isLockOn) checkCameraAndToggle(true);
+
+    biometricLockToggle.addEventListener('change', (e) => {
+      checkCameraAndToggle(e.target.checked);
+    });
+  }
+
   if (scanFaceBtn) {
     scanFaceBtn.addEventListener('click', async () => {
+      scanFaceBtn.textContent = 'Scanning...';
+      scanFaceBtn.classList.add('opacity-50', 'pointer-events-none');
       if (isElectron) {
         try {
-          const result = await ipc.invoke('biometric-scan')
-          const biometricStatus = document.getElementById('biometric-status')
-          if (biometricStatus) {
-            biometricStatus.textContent = result ? 'Face detected and scanned' : 'No face detected'
-            biometricStatus.className = result
-              ? 'text-emerald-500 text-sm'
-              : 'text-rose-500 text-sm'
-          }
+          const result = await ipc.invoke('biometric-scan');
+          if (result) showToast('Face detected and scanned.', 'success');
+          else showToast('No face detected.', 'error');
         } catch (err) {
-          console.error('Face scan failed:', err)
+          showToast('Scan failed.', 'error');
         }
+      } else {
+        showToast('Scanning demo mode...', 'info');
       }
+      scanFaceBtn.textContent = 'Scan Face';
+      scanFaceBtn.classList.remove('opacity-50', 'pointer-events-none');
     })
   }
 
   if (enrollFaceBtn) {
     enrollFaceBtn.addEventListener('click', async () => {
+      const name = prompt('Enter a name for this face:');
+      if (!name) return;
+      enrollFaceBtn.textContent = 'Enrolling...';
+      enrollFaceBtn.classList.add('opacity-50', 'pointer-events-none');
       if (isElectron) {
         try {
-          const result = await ipc.invoke('biometric-enroll')
-          const biometricStatus = document.getElementById('biometric-status')
-          if (biometricStatus) {
-            biometricStatus.textContent = result
-              ? 'Face enrolled successfully'
-              : 'Enrollment failed'
-            biometricStatus.className = result
-              ? 'text-emerald-500 text-sm'
-              : 'text-rose-500 text-sm'
+          const result = await ipc.invoke('biometric-enroll', { name });
+          if (result) {
+            showToast('Face enrolled successfully.', 'success');
+            loadEnrolledFaces();
+          } else {
+            showToast('Enrollment failed.', 'error');
           }
         } catch (err) {
-          console.error('Face enrollment failed:', err)
+          showToast('Enrollment failed.', 'error');
         }
+      } else {
+        showToast('Enrolled demo face.', 'success');
       }
+      enrollFaceBtn.textContent = 'Enroll New Face';
+      enrollFaceBtn.classList.remove('opacity-50', 'pointer-events-none');
     })
   }
 
   if (testRecognitionBtn) {
     testRecognitionBtn.addEventListener('click', async () => {
+      testRecognitionBtn.textContent = 'Testing...';
+      testRecognitionBtn.classList.add('opacity-50', 'pointer-events-none');
       if (isElectron) {
         try {
-          const result = await ipc.invoke('biometric-test')
-          const biometricStatus = document.getElementById('biometric-status')
-          if (biometricStatus) {
-            biometricStatus.textContent = result ? 'Recognition successful' : 'Recognition failed'
-            biometricStatus.className = result
-              ? 'text-emerald-500 text-sm'
-              : 'text-rose-500 text-sm'
-          }
+          const result = await ipc.invoke('biometric-test');
+          if (result) showToast('Face recognized successfully.', 'success');
+          else showToast('Face recognition failed.', 'error');
         } catch (err) {
-          console.error('Recognition test failed:', err)
+          showToast('Test failed.', 'error');
         }
+      } else {
+        showToast('Test passed in demo mode.', 'success');
       }
+      testRecognitionBtn.textContent = 'Test Recognition';
+      testRecognitionBtn.classList.remove('opacity-50', 'pointer-events-none');
     })
   }
 
@@ -1513,7 +1692,7 @@
       if (isElectron) {
         try {
           const success = await ipc.invoke('privacy-export')
-          alert(success ? 'Data exported successfully' : 'Export failed')
+          showToast(success ? 'Data exported successfully' : 'Export failed', success ? 'success' : 'error')
         } catch (err) {
           console.error('Export failed:', err)
         }
@@ -1606,7 +1785,7 @@
             connectPhoneBtn.classList.add('bg-emerald-500')
           } else {
             connectPhoneBtn.textContent = 'Connect'
-            alert('Connection failed: ' + (res?.error || 'Unknown error'))
+            showToast('Connection failed: ' + (res?.error || 'Unknown error'), 'error')
           }
           connectPhoneBtn.disabled = false
         } catch (err) {
@@ -1780,4 +1959,236 @@
       }
     })
   }
+
+  // ========= COMMAND PALETTE (Ctrl+K) =========
+  const cmdBackdrop = document.getElementById('cmd-palette-backdrop');
+  const cmdPalette = document.getElementById('cmd-palette');
+  const cmdInput = document.getElementById('cmd-input');
+  const cmdResults = document.getElementById('cmd-results');
+  
+  const commands = [
+    { name: 'Dashboard', icon: '🏠', action: () => document.querySelector('[data-tab="dashboard"]')?.click() },
+    { name: 'Chat with IRIS', icon: '💬', action: () => document.querySelector('[data-tab="chat"]')?.click() },
+    { name: 'System Monitor', icon: '📈', action: () => document.querySelector('[data-tab="monitor"]')?.click() },
+    { name: 'Security & Defender', icon: '🛡️', action: () => document.querySelector('[data-tab="security"]')?.click() },
+    { name: 'Phone Link (ADB)', icon: '📱', action: () => document.querySelector('[data-tab="phone"]')?.click() },
+    { name: 'App Library', icon: '📦', action: () => document.querySelector('[data-tab="apps"]')?.click() },
+    { name: 'Settings', icon: '⚙️', action: () => document.querySelector('[data-tab="settings"]')?.click() },
+    { name: 'Toggle Dark Mode', icon: '🌗', action: () => document.getElementById('theme-toggle')?.click() },
+    { name: 'Toggle Power', icon: '⚡', action: () => document.getElementById('power-btn')?.click() }
+  ];
+
+  function toggleCommandPalette(show) {
+    if (!cmdBackdrop) return;
+    if (show) {
+      cmdBackdrop.classList.remove('hidden');
+      cmdBackdrop.classList.add('flex');
+      // small delay to allow display:flex to apply before animating opacity/scale
+      setTimeout(() => {
+        cmdPalette.classList.remove('scale-95', 'opacity-0');
+        cmdPalette.classList.add('scale-100', 'opacity-100');
+        cmdInput.focus();
+        cmdInput.value = '';
+        renderCmdResults('');
+      }, 10);
+    } else {
+      cmdPalette.classList.remove('scale-100', 'opacity-100');
+      cmdPalette.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        cmdBackdrop.classList.remove('flex');
+        cmdBackdrop.classList.add('hidden');
+      }, 200);
+    }
+  }
+
+  function renderCmdResults(query) {
+    if (!cmdResults) return;
+    const lowerQuery = query.toLowerCase();
+    const filtered = commands.filter(c => c.name.toLowerCase().includes(lowerQuery));
+    
+    if (filtered.length === 0) {
+      cmdResults.innerHTML = '<div class="p-4 text-center opacity-50 text-sm">No commands found.</div>';
+      return;
+    }
+    
+    cmdResults.innerHTML = filtered.map((c, i) => `
+      <div class="cmd-item p-3 rounded-xl hover:bg-accent cursor-pointer flex items-center gap-3 transition-colors ${i === 0 ? 'bg-accent' : ''}" data-index="${i}">
+        <span class="text-xl">${c.icon}</span>
+        <span class="text-sm font-medium">${c.name}</span>
+      </div>
+    `).join('');
+    
+    const items = cmdResults.querySelectorAll('.cmd-item');
+    items.forEach(item => {
+      item.addEventListener('click', () => {
+        const idx = parseInt(item.getAttribute('data-index'));
+        filtered[idx].action();
+        toggleCommandPalette(false);
+      });
+      item.addEventListener('mouseenter', () => {
+        items.forEach(i => i.classList.remove('bg-accent'));
+        item.classList.add('bg-accent');
+      });
+    });
+  }
+
+  if (cmdInput) {
+    cmdInput.addEventListener('input', (e) => renderCmdResults(e.target.value));
+    cmdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const active = cmdResults.querySelector('.cmd-item.bg-accent');
+        if (active) active.click();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const items = Array.from(cmdResults.querySelectorAll('.cmd-item'));
+        if (!items.length) return;
+        const currentIdx = items.findIndex(i => i.classList.contains('bg-accent'));
+        items.forEach(i => i.classList.remove('bg-accent'));
+        let nextIdx = e.key === 'ArrowDown' ? currentIdx + 1 : currentIdx - 1;
+        if (nextIdx >= items.length) nextIdx = 0;
+        if (nextIdx < 0) nextIdx = items.length - 1;
+        items[nextIdx].classList.add('bg-accent');
+        items[nextIdx].scrollIntoView({ block: 'nearest' });
+      }
+    });
+  }
+
+  if (cmdBackdrop) {
+    cmdBackdrop.addEventListener('click', (e) => {
+      if (e.target === cmdBackdrop) toggleCommandPalette(false);
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      const isVisible = !cmdBackdrop.classList.contains('hidden');
+      toggleCommandPalette(!isVisible);
+    }
+    if (e.key === 'Escape' && !cmdBackdrop.classList.contains('hidden')) {
+      toggleCommandPalette(false);
+    }
+  });
+  // --- Auto Updater UI ---
+  if (isElectron) {
+    const updaterUi = document.getElementById('updater-ui');
+    const updaterText = document.getElementById('updater-text');
+    const updaterProgress = document.getElementById('updater-progress');
+
+    window.electron.ipcRenderer.on('updater-event', (_, payload) => {
+      if (!updaterUi) return;
+      updaterUi.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-20');
+      
+      if (payload.type === 'available') {
+        updaterText.textContent = 'Downloading update...';
+      } else if (payload.type === 'not-available') {
+        updaterText.textContent = 'System is up to date';
+        setTimeout(() => updaterUi.classList.add('opacity-0', 'pointer-events-none', '-translate-y-20'), 3000);
+      } else if (payload.type === 'progress') {
+        updaterText.textContent = `Downloading... ${Math.round(payload.progress)}%`;
+        if (updaterProgress) updaterProgress.style.width = `${payload.progress}%`;
+      } else if (payload.type === 'downloaded') {
+        updaterText.textContent = 'Update ready. Restarting...';
+        if (updaterProgress) updaterProgress.style.width = '100%';
+        setTimeout(() => window.electron.ipcRenderer.send('window-close'), 2000);
+      }
+    });
+  }
+
+  // --- System Monitor Charts ---
+  let cpuChart, ramChart;
+  
+  function initCharts() {
+    const cpuCtx = document.getElementById('cpu-chart')?.getContext('2d');
+    const ramCtx = document.getElementById('ram-chart')?.getContext('2d');
+    
+    if (!cpuCtx || !ramCtx || typeof Chart === 'undefined') return;
+
+    Chart.defaults.color = 'rgba(255, 255, 255, 0.5)';
+    Chart.defaults.font.family = 'Inter, sans-serif';
+
+    const commonOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { display: false },
+        y: { min: 0, max: 100, display: false }
+      },
+      animation: { duration: 0 },
+      elements: { point: { radius: 0 } }
+    };
+
+    cpuChart = new Chart(cpuCtx, {
+      type: 'line',
+      data: {
+        labels: Array(20).fill(''),
+        datasets: [{
+          data: Array(20).fill(0),
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          backgroundColor: 'rgba(59, 130, 246, 0.1)'
+        }]
+      },
+      options: commonOptions
+    });
+
+    ramChart = new Chart(ramCtx, {
+      type: 'line',
+      data: {
+        labels: Array(20).fill(''),
+        datasets: [{
+          data: Array(20).fill(0),
+          borderColor: '#f43f5e',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          backgroundColor: 'rgba(244, 63, 94, 0.1)'
+        }]
+      },
+      options: commonOptions
+    });
+  }
+
+  async function updateSystemStats() {
+    if (!isElectron) return;
+    try {
+      const stats = await ipc.invoke('get-system-stats');
+      if (!stats) return;
+
+      const cpuVal = parseFloat(stats.cpu);
+      const ramVal = parseFloat(stats.memory.usedPercentage);
+
+      const cpuValueEl = document.getElementById('cpu-value');
+      const ramValueEl = document.getElementById('ram-value');
+      const ramUsedEl = document.getElementById('ram-used');
+
+      if (cpuValueEl) cpuValueEl.textContent = `${Math.round(cpuVal)}%`;
+      if (ramValueEl) ramValueEl.textContent = `${Math.round(ramVal)}%`;
+      if (ramUsedEl) ramUsedEl.textContent = `${stats.memory.total} / ${stats.memory.free} FREE`;
+
+      if (cpuChart) {
+        cpuChart.data.datasets[0].data.shift();
+        cpuChart.data.datasets[0].data.push(cpuVal);
+        cpuChart.update();
+      }
+      
+      if (ramChart) {
+        ramChart.data.datasets[0].data.shift();
+        ramChart.data.datasets[0].data.push(ramVal);
+        ramChart.update();
+      }
+    } catch (e) {
+      console.error('Failed to update system stats:', e);
+    }
+  }
+
+  setTimeout(() => {
+    initCharts();
+    setInterval(updateSystemStats, 2000);
+    updateSystemStats();
+  }, 1000);
+
 })()

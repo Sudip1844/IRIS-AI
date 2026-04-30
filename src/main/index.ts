@@ -57,6 +57,7 @@ import registerSecurityVault from './security/Security'
 import registerLockSystem from './security/lock-system'
 import { listQuarantined, restoreFile, deleteQuarantined } from './security/quarantine-manager'
 import registerChatHandler from './services/chat-handler'
+import { registerSpotifyManager } from './logic/spotify-manager'
 import { autoUpdater } from 'electron-updater'
 
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
@@ -100,7 +101,7 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       backgroundThrottling: false,
-      webSecurity: false
+      webSecurity: true
     }
   })
 
@@ -183,6 +184,21 @@ function toggleOverlayMode(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
   autoUpdater.checkForUpdatesAndNotify()
+
+  // Auto-Updater Events
+  autoUpdater.on('update-available', () => {
+    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'available' });
+  });
+  autoUpdater.on('update-not-available', () => {
+    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'not-available' });
+  });
+  autoUpdater.on('download-progress', (progressObj) => {
+    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'progress', progress: progressObj.percent });
+  });
+  autoUpdater.on('update-downloaded', () => {
+    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'downloaded' });
+  });
+
   registerChatHandler()
 
   ipcMain.handle('secure-save-keys', async (_, { groqKey, geminiKey }) => {
@@ -294,6 +310,8 @@ app.whenReady().then(() => {
   registerPrivacyHandlers(ipcMain)
   registerAppsHandlers(ipcMain)
   registerIpcHandlers({ ipcMain, app })
+  registerChatHandler()
+  registerSpotifyManager()
 
   ipcMain.handle('get-screen-source', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen'] })

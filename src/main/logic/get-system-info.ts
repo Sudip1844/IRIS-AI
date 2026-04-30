@@ -6,6 +6,7 @@ const runCommand = (cmd: string): Promise<string> => {
   return new Promise((resolve) => {
     exec(cmd, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout) => {
       if (error) {
+        console.error(`Error executing command: ${error.message}`)
       }
       resolve(stdout ? stdout.trim() : '')
     })
@@ -14,7 +15,7 @@ const runCommand = (cmd: string): Promise<string> => {
 
 let cpuLastSnapshot = os.cpus()
 
-function getSystemCpuUsage() {
+function getSystemCpuUsage(): string {
   const cpus = os.cpus()
   let idle = 0
   let total = 0
@@ -32,7 +33,7 @@ function getSystemCpuUsage() {
   return total === 0 ? '0.0' : (((total - idle) / total) * 100).toFixed(1)
 }
 
-export default function registerSystemHandlers(ipcMain: IpcMain) {
+export default function registerSystemHandlers(ipcMain: IpcMain): void {
 
   ipcMain.removeHandler('get-installed-apps')
   ipcMain.handle('get-installed-apps', async () => {
@@ -70,6 +71,31 @@ export default function registerSystemHandlers(ipcMain: IpcMain) {
   ipcMain.handle('get-system-stats', async () => {
     const totalMem = os.totalmem()
     const freeMem = os.freemem()
+    
+    let temperature = 50
+    try {
+      const tempCmd = `powershell "Get-WmiObject -Namespace root/wmi -Class MSApi_ThermalZoneTemperature -ErrorAction Stop | Select-Object -ExpandProperty CurrentTemperature"`
+      const tempOutput = await runCommand(tempCmd)
+      if (tempOutput) {
+        // Temperature is in tenths of degrees Kelvin
+        const kelvinTenths = parseInt(tempOutput.split('\\n')[0].trim())
+        if (!isNaN(kelvinTenths)) {
+          temperature = Math.round((kelvinTenths / 10.0) - 273.15)
+        }
+      }
+    } catch (e) {
+      // Ignore fallback
+    }
+
+    let osType = 'Windows'
+    try {
+      const osCmd = `powershell "Get-CimInstance Win32_OperatingSystem | Select-Object -ExpandProperty Caption"`
+      const osOutput = await runCommand(osCmd)
+      if (osOutput) osType = osOutput.trim()
+    } catch (e) {
+      osType = os.type() + ' ' + os.release()
+    }
+
     return {
       cpu: getSystemCpuUsage(),
       memory: {
@@ -77,9 +103,9 @@ export default function registerSystemHandlers(ipcMain: IpcMain) {
         free: (freeMem / 1024 ** 3).toFixed(1) + ' GB',
         usedPercentage: (((totalMem - freeMem) / totalMem) * 100).toFixed(1)
       },
-      temperature: 50,
+      temperature,
       os: {
-        type: 'Windows 11',
+        type: osType,
         uptime: (os.uptime() / 3600).toFixed(1) + 'h'
       }
     }

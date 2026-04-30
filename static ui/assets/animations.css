@@ -1,0 +1,69 @@
+/* Visualizer pulse animation */
+.animate-pulse-scale {
+    animation: pulseScale 2s ease-in-out infinite;
+}
+@keyframes pulseScale {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.5); opacity: 0.2; }
+}
+
+/* Visualizer: Wave */
+.viz-wave {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 2rem;
+}
+.viz-wave .bar {
+    width: 0.25rem;
+    background: var(--color-primary);
+    border-radius: 9999px;
+    animation: waveBar 0.5s ease-in-out infinite alternate;
+}
+.viz-wave .bar:nth-child(1) { animation-delay: 0s; }
+.viz-wave .bar:nth-child(2) { animation-delay: 0.1s; }
+.viz-wave .bar:nth-child(3) { animation-delay: 0.2s; }
+.viz-wave .bar:nth-child(4) { animation-delay: 0.3s; }
+.viz-wave .bar:nth-child(5) { animation-delay: 0.4s; }
+@keyframes waveBar {
+    0% { height: 0.5rem; }
+    100% { height: 2rem; }
+}
+
+/* Visualizer: Ring */
+.viz-ring {
+    position: relative;
+    width: 3rem;
+    height: 3rem;
+}
+.viz-ring .ring {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--color-primary);
+    border-radius: 50%;
+    animation: ringPulse 1.5s cubic-bezier(0.165, 0.84, 0.44, 1) infinite;
+}
+.viz-ring .ring:nth-child(2) { animation-delay: 0.5s; }
+.viz-ring .ring:nth-child(3) { animation-delay: 1s; }
+@keyframes ringPulse {
+    0% { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+/* Loading Skeleton */
+.skeleton-box {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 0.5rem;
+}
+
+.dark .skeleton-box {
+    background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.02) 75%);
+    background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
