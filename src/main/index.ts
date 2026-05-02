@@ -4,12 +4,14 @@ import {
   BrowserWindow,
   ipcMain,
   desktopCapturer,
-  globalShortcut,
+  // Removed: globalShortcut no longer used
+  // globalShortcut,
   screen,
   session,
   safeStorage,
-  Tray,
-  Menu,
+  // Removed: Tray and Menu no longer used
+  // Tray,
+  // Menu,
   nativeImage
 } from 'electron'
 import path, { join } from 'path'
@@ -58,6 +60,14 @@ import registerLockSystem from './security/lock-system'
 import { listQuarantined, restoreFile, deleteQuarantined } from './security/quarantine-manager'
 import registerChatHandler from './services/chat-handler'
 import { registerSpotifyManager } from './logic/spotify-manager'
+import {
+  getProviderConfigPath,
+  loadProviderConfig,
+  saveProviderConfig,
+  encryptKey,
+  decryptKey,
+  ProviderStore
+} from './services/providers/provider-registry'
 import { autoUpdater } from 'electron-updater'
 
 app.commandLine.appendSwitch('use-fake-ui-for-media-stream')
@@ -77,7 +87,8 @@ if (!gotTheLock) {
 
 let mainWindow: BrowserWindow | null = null
 let quickChatWindow: BrowserWindow | null = null
-let tray: Tray | null = null
+// Removed: tray no longer used
+// let tray: Tray | null = null
 let isOverlayMode = false
 let isQuiting = false
 
@@ -109,16 +120,18 @@ function createWindow(): void {
     if (mainWindow) mainWindow.show()
   })
 
-  // ── Close to Tray (background running) ─────────────────────────────
-  mainWindow.on('close', (e) => {
-    if (!isQuiting) {
-      e.preventDefault()
-      mainWindow?.hide()
-    }
+  // ── Window Close Handling ─────────────────────────────────────────────
+  // On close button (X), just close the window. App only quits via STOP MJ button.
+  mainWindow.on('closed', () => {
+    mainWindow = null
   })
 
   ipcMain.on('window-min', () => mainWindow?.minimize())
-  ipcMain.on('window-close', () => mainWindow?.hide())
+  ipcMain.on('window-close', () => {
+    if (mainWindow) {
+      mainWindow.close()
+    }
+  })
   ipcMain.on('window-max', () => {
     if (mainWindow?.isMaximized()) mainWindow.unmaximize()
     else mainWindow?.maximize()
@@ -142,14 +155,27 @@ function createWindow(): void {
 
 app.on('second-instance', (event, commandLine) => {
   if (!event) return
-  if (mainWindow) {
+
+  // If mainWindow was closed, recreate it
+  if (!mainWindow) {
+    createWindow()
+    // Wait for window to be ready
+    setTimeout(() => {
+      if (mainWindow) {
+        mainWindow.focus()
+      }
+    }, 500)
+  } else {
+    // Restore existing window
     if (mainWindow.isMinimized()) mainWindow.restore()
     if (!mainWindow.isVisible()) mainWindow.show()
     mainWindow.focus()
-    const url = commandLine.find((arg) => arg.startsWith('mj://'))
-    if (url) {
-      mainWindow.webContents.send('oauth-callback', url)
-    }
+  }
+
+  // Handle OAuth callbacks
+  const url = commandLine.find((arg) => arg.startsWith('mj://'))
+  if (url && mainWindow) {
+    mainWindow.webContents.send('oauth-callback', url)
   }
 })
 
@@ -187,38 +213,50 @@ app.whenReady().then(() => {
 
   // Auto-Updater Events
   autoUpdater.on('update-available', () => {
-    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'available' });
-  });
+    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'available' })
+  })
   autoUpdater.on('update-not-available', () => {
-    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'not-available' });
-  });
+    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'not-available' })
+  })
   autoUpdater.on('download-progress', (progressObj) => {
-    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'progress', progress: progressObj.percent });
-  });
+    if (mainWindow)
+      mainWindow.webContents.send('updater-event', {
+        type: 'progress',
+        progress: progressObj.percent
+      })
+  })
   autoUpdater.on('update-downloaded', () => {
-    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'downloaded' });
-  });
+    if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'downloaded' })
+  })
 
   registerChatHandler()
 
-  ipcMain.handle('secure-save-keys', async (_, { groqKey, geminiKey }) => {
+  ipcMain.handle('secure-save-keys', async (_, payload: any) => {
     try {
-      let groqEncrypted, geminiEncrypted
+      const { groqKey, geminiKey, openaiKey, anthropicKey } = payload
+
+      let encrypted: any = {}
 
       if (safeStorage.isEncryptionAvailable()) {
-        groqEncrypted = safeStorage.encryptString(groqKey).toString('base64')
-        geminiEncrypted = safeStorage.encryptString(geminiKey).toString('base64')
+        if (groqKey) encrypted.groq = safeStorage.encryptString(groqKey).toString('base64')
+        if (geminiKey) encrypted.gemini = safeStorage.encryptString(geminiKey).toString('base64')
+        if (openaiKey) encrypted.openai = safeStorage.encryptString(openaiKey).toString('base64')
+        if (anthropicKey)
+          encrypted.anthropic = safeStorage.encryptString(anthropicKey).toString('base64')
       } else {
-        groqEncrypted = Buffer.from(groqKey).toString('base64')
-        geminiEncrypted = Buffer.from(geminiKey).toString('base64')
+        if (groqKey) encrypted.groq = Buffer.from(groqKey).toString('base64')
+        if (geminiKey) encrypted.gemini = Buffer.from(geminiKey).toString('base64')
+        if (openaiKey) encrypted.openai = Buffer.from(openaiKey).toString('base64')
+        if (anthropicKey) encrypted.anthropic = Buffer.from(anthropicKey).toString('base64')
       }
 
-      const secureData = {
-        groq: groqEncrypted,
-        gemini: geminiEncrypted
+      // Preserve existing keys that weren't updated
+      if (fs.existsSync(secureConfigPath)) {
+        const existing = JSON.parse(fs.readFileSync(secureConfigPath, 'utf8'))
+        encrypted = { ...existing, ...encrypted }
       }
 
-      fs.writeFileSync(secureConfigPath, JSON.stringify(secureData))
+      fs.writeFileSync(secureConfigPath, JSON.stringify(encrypted))
       return { success: true }
     } catch (error: unknown) {
       return { success: false, error: (error as Error).message }
@@ -229,17 +267,25 @@ app.whenReady().then(() => {
     if (!fs.existsSync(secureConfigPath)) return null
     try {
       const data = JSON.parse(fs.readFileSync(secureConfigPath, 'utf8'))
-      let groqKey, geminiKey
+      let keys: any = {}
 
       if (safeStorage.isEncryptionAvailable()) {
-        groqKey = safeStorage.decryptString(Buffer.from(data.groq, 'base64'))
-        geminiKey = safeStorage.decryptString(Buffer.from(data.gemini, 'base64'))
+        if (data.groq) keys.groqKey = safeStorage.decryptString(Buffer.from(data.groq, 'base64'))
+        if (data.gemini)
+          keys.geminiKey = safeStorage.decryptString(Buffer.from(data.gemini, 'base64'))
+        if (data.openai)
+          keys.openaiKey = safeStorage.decryptString(Buffer.from(data.openai, 'base64'))
+        if (data.anthropic)
+          keys.anthropicKey = safeStorage.decryptString(Buffer.from(data.anthropic, 'base64'))
       } else {
-        groqKey = Buffer.from(data.groq, 'base64').toString('utf8')
-        geminiKey = Buffer.from(data.gemini, 'base64').toString('utf8')
+        if (data.groq) keys.groqKey = Buffer.from(data.groq, 'base64').toString('utf8')
+        if (data.gemini) keys.geminiKey = Buffer.from(data.gemini, 'base64').toString('utf8')
+        if (data.openai) keys.openaiKey = Buffer.from(data.openai, 'base64').toString('utf8')
+        if (data.anthropic)
+          keys.anthropicKey = Buffer.from(data.anthropic, 'base64').toString('utf8')
       }
 
-      return { groqKey, geminiKey }
+      return keys
     } catch (_err) {
       return null
     }
@@ -247,6 +293,24 @@ app.whenReady().then(() => {
 
   ipcMain.handle('check-keys-exist', () => {
     return fs.existsSync(secureConfigPath)
+  })
+
+  ipcMain.handle('provider-save-config', async (_, config: ProviderStore) => {
+    try {
+      return saveProviderConfig(config)
+    } catch (error: unknown) {
+      console.error('[MJ] provider-save-config failed', error)
+      return false
+    }
+  })
+
+  ipcMain.handle('provider-load-config', async () => {
+    try {
+      return loadProviderConfig()
+    } catch (error: unknown) {
+      console.error('[MJ] provider-load-config failed', error)
+      return null
+    }
   })
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -334,38 +398,39 @@ app.whenReady().then(() => {
   createWindow()
 
   // ── System Tray ────────────────────────────────────────────────────
-  const trayIconPath = join(app.getAppPath(), 'resources', 'icon.png')
-  const trayNativeImage = nativeImage.createFromPath(trayIconPath).resize({ width: 20, height: 20 })
-  tray = new Tray(trayNativeImage)
-  tray.setToolTip('MJ Assistant')
+  // Removed: No longer using system tray for background running
+  // const trayIconPath = join(app.getAppPath(), 'resources', 'icon.png')
+  // const trayNativeImage = nativeImage.createFromPath(trayIconPath).resize({ width: 20, height: 20 })
+  // tray = new Tray(trayNativeImage)
+  // tray.setToolTip('MJ Assistant')
 
-  const trayMenu = Menu.buildFromTemplate([
-    {
-      label: 'Open MJ Control Center',
-      click: (): void => {
-        mainWindow?.show()
-        mainWindow?.focus()
-      }
-    },
-    {
-      label: 'Quick Chat',
-      click: (): void => toggleQuickChat()
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit MJ',
-      click: (): void => {
-        isQuiting = true
-        if (quickChatWindow) quickChatWindow.destroy()
-        app.quit()
-      }
-    }
-  ])
-  tray.setContextMenu(trayMenu)
-  tray.on('double-click', () => {
-    mainWindow?.show()
-    mainWindow?.focus()
-  })
+  // const trayMenu = Menu.buildFromTemplate([
+  //   {
+  //     label: 'Open MJ Control Center',
+  //     click: (): void => {
+  //       mainWindow?.show()
+  //       mainWindow?.focus()
+  //     }
+  //   },
+  //   {
+  //     label: 'Quick Chat',
+  //     click: (): void => toggleQuickChat()
+  //   },
+  //   { type: 'separator' },
+  //   {
+  //     label: 'Quit MJ',
+  //     click: (): void => {
+  //       isQuiting = true
+  //       if (quickChatWindow) quickChatWindow.destroy()
+  //       app.quit()
+  //     }
+  //   }
+  // ])
+  // tray.setContextMenu(trayMenu)
+  // tray.on('double-click', () => {
+  //   mainWindow?.show()
+  //   mainWindow?.focus()
+  // })
 
   // ── Quit App IPC (from Stop MJ button when user really wants to quit) ──
   ipcMain.handle('quit-app', () => {
@@ -375,19 +440,22 @@ app.whenReady().then(() => {
   })
 
   // ── Global Shortcuts ───────────────────────────────────────────────
-  globalShortcut.register('CommandOrControl+Shift+I', () => toggleOverlayMode())
-  ipcMain.on('toggle-overlay', () => toggleOverlayMode())
+  // Removed: No longer using global shortcuts
+  // globalShortcut.register('CommandOrControl+Shift+I', () => toggleOverlayMode())
+  // ipcMain.on('toggle-overlay', () => toggleOverlayMode())
 
   // Alt+Space → Toggle Mic (sends IPC to renderer)
-  globalShortcut.register('Alt+Space', () => {
-    if (mainWindow) {
-      mainWindow.show()
-      mainWindow.webContents.send('toggle-mic')
-    }
-  })
+  // Removed: No longer using global shortcuts
+  // globalShortcut.register('Alt+Space', () => {
+  //   if (mainWindow) {
+  //     mainWindow.show()
+  //     mainWindow.webContents.send('toggle-mic')
+  //   }
+  // })
 
   // Ctrl+Shift+M → Toggle Quick Chat
-  globalShortcut.register('CommandOrControl+Shift+M', () => toggleQuickChat())
+  // Removed: No longer using global shortcuts
+  // globalShortcut.register('CommandOrControl+Shift+M', () => toggleQuickChat())
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -395,7 +463,8 @@ app.whenReady().then(() => {
 })
 
 app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
+  // Removed: No global shortcuts to unregister
+  // globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {

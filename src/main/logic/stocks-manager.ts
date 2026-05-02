@@ -7,7 +7,7 @@ export default function registerStocksHandlers(ipcMain: IpcMain) {
 
   ipcMain.handle('stocks-add', async (event, { symbol }) => {
     try {
-      let stocks = []
+      let stocks: any[] = []
       if (fs.existsSync(STOCKS_FILE)) {
         const data = fs.readFileSync(STOCKS_FILE, 'utf-8')
         stocks = JSON.parse(data)

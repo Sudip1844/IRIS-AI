@@ -745,10 +745,14 @@
                             <span class="text-[8px] font-bold px-2 py-1 bg-blue-500 text-white rounded-full uppercase">Active</span>
                         </div>
                         <select id="brain-provider" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500/20">
-                            <option value="google">Google (Gemini)</option>
+                            <option value="gemini">Google (Gemini)</option>
                             <option value="anthropic">Anthropic (Claude)</option>
                             <option value="groq">Groq (Llama/Mixtral)</option>
                             <option value="openai">OpenAI (GPT)</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="mistral">Mistral</option>
+                            <option value="openrouter">OpenRouter</option>
+                            <option value="xai">xAI (Grok)</option>
                         </select>
                         <div class="flex gap-2">
                             <input type="password" id="brain-api-key" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="Enter API key..." readonly>
@@ -766,7 +770,7 @@
                             <span class="text-[8px] font-bold px-2 py-1 bg-violet-500/90 text-white rounded-full uppercase">Sub-Agent</span>
                         </div>
                         <select id="vision-provider" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-violet-500/20">
-                            <option value="google">Google (Gemini Vision)</option>
+                            <option value="gemini">Google (Gemini Vision)</option>
                             <option value="anthropic">Anthropic (Claude Vision)</option>
                             <option value="openai">OpenAI (GPT-4 Vision)</option>
                         </select>
@@ -787,9 +791,13 @@
                         </div>
                         <select id="code-provider" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/20">
                             <option value="anthropic">Anthropic (Claude)</option>
-                            <option value="google">Google (Gemini)</option>
+                            <option value="gemini">Google (Gemini)</option>
                             <option value="groq">Groq (Llama)</option>
                             <option value="openai">OpenAI (GPT)</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="mistral">Mistral</option>
+                            <option value="openrouter">OpenRouter</option>
+                            <option value="xai">xAI (Grok)</option>
                         </select>
                         <div class="flex gap-2">
                             <input type="password" id="code-api-key" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="Enter API key..." readonly>
@@ -828,7 +836,109 @@
 
 
 
-            <!-- ═══════════ VOICE & GENERAL ═══════════ -->
+            <!-- ═══════════ API KEYS ═══════════ -->
+            <div class="p-5 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm space-y-5">
+                <div>
+                    <h3 class="text-base md:text-lg font-bold flex items-center gap-2">🔑 API Keys</h3>
+                    <p class="text-[10px] md:text-xs text-muted-foreground mt-1">Configure API keys for all supported AI providers.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Gemini -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-blue-500">🤖</span> Google Gemini
+                        </label>
+                        <input type="password" id="gemini-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" placeholder="Enter Gemini API key..." readonly>
+                    </div>
+
+                    <!-- Groq -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-orange-500">⚡</span> Groq
+                        </label>
+                        <input type="password" id="groq-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-500/20 transition-all" placeholder="Enter Groq API key..." readonly>
+                    </div>
+
+                    <!-- OpenAI -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-green-500">🟢</span> OpenAI
+                        </label>
+                        <input type="password" id="openai-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500/20 transition-all" placeholder="Enter OpenAI API key..." readonly>
+                    </div>
+
+                    <!-- Anthropic -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-purple-500">🟣</span> Anthropic
+                        </label>
+                        <input type="password" id="anthropic-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500/20 transition-all" placeholder="Enter Anthropic API key..." readonly>
+                    </div>
+
+                    <!-- Hugging Face -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-yellow-500">🤗</span> Hugging Face
+                        </label>
+                        <input type="password" id="hf-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-500/20 transition-all" placeholder="hf_..." readonly>
+                    </div>
+
+                    <!-- Tavily -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-amber-500">🔍</span> Tavily (Research)
+                        </label>
+                        <input type="password" id="tavily-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-500/20 transition-all" placeholder="tvly-..." readonly>
+                    </div>
+
+                    <!-- DeepSeek -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-cyan-500">🌊</span> DeepSeek
+                        </label>
+                        <input type="password" id="deepseek-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-500/20 transition-all" placeholder="sk-..." readonly>
+                    </div>
+
+                    <!-- Mistral -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-indigo-500">🌪️</span> Mistral
+                        </label>
+                        <input type="password" id="mistral-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all" placeholder="..." readonly>
+                    </div>
+
+                    <!-- OpenRouter -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-pink-500">🔀</span> OpenRouter
+                        </label>
+                        <input type="password" id="openrouter-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-500/20 transition-all" placeholder="sk-or-..." readonly>
+                    </div>
+
+                    <!-- xAI -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-red-500">🚀</span> xAI (Grok)
+                        </label>
+                        <input type="password" id="xai-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500/20 transition-all" placeholder="xai-..." readonly>
+                    </div>
+
+                    <!-- Nvidia NIM -->
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold opacity-70 uppercase tracking-widest flex items-center gap-2">
+                            <span class="text-green-600">🟢</span> Nvidia NIM
+                        </label>
+                        <input type="password" id="nvidia-key" class="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-600/20 transition-all" placeholder="nvapi-..." readonly>
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button id="save-keys-btn" class="px-6 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95 font-medium">
+                        💾 Save API Keys
+                    </button>
+                </div>
+            </div>
             <!-- Voice Config -->
             <div class="p-5 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm space-y-4">
                 <h3 class="text-base md:text-lg font-bold flex items-center gap-2">🎤 Voice Configuration</h3>

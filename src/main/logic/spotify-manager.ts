@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { startApp } from './app-launcher'
-import { handleGhostSequence } from './ghost-control'
+// import handleGhostSequence from './ghost-control'
 
 export function registerSpotifyManager() {
   ipcMain.handle('play-spotify-music', async (_, songName: string) => {
@@ -29,9 +29,9 @@ export function registerSpotifyManager() {
         { type: 'press', key: 'enter' }
       ]
 
-      await handleGhostSequence(navActions)
+      // await handleGhostSequence(navActions)
 
-      return `✅ Now playing ${songName} on Spotify.`
+      return `✅ Launched Spotify. Please search for "${songName}" manually.`
     } catch (error) {
       console.error('Spotify error:', error)
       return `❌ Failed to play ${songName}.`

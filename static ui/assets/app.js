@@ -17,6 +17,9 @@
   let isSidebarExpanded = false
   let statsInterval = null
 
+  // Provider config state
+  let providerConfig = null
+
   // --- Utility Functions ---
   // Note: showToast and Theme initialization are now in ui-utils.js
 
@@ -64,6 +67,13 @@
   const addWidgetBtn = document.getElementById('add-widget-btn')
   const geminiKey = document.getElementById('gemini-key')
   const groqKey = document.getElementById('groq-key')
+  const openaiKey = document.getElementById('openai-key')
+  const anthropicKey = document.getElementById('anthropic-key')
+  const deepseekKey = document.getElementById('deepseek-key')
+  const mistralKey = document.getElementById('mistral-key')
+  const openrouterKey = document.getElementById('openrouter-key')
+  const xaiKey = document.getElementById('xai-key')
+  const nvidiaKey = document.getElementById('nvidia-key')
   const hfKey = document.getElementById('hf-key')
   const tavilyKey = document.getElementById('tavily-key')
   const saveKeysBtn = document.getElementById('save-keys-btn')
@@ -111,6 +121,9 @@
       if (tabId === 'settings' && isElectron) {
         loadSavedKeys()
       }
+      if (tabId === 'subagents' && isElectron) {
+        loadSubAgentProviders()
+      }
       // Auto-load alerts when widgets tab opens (alerts is a sub-tab)
       if (tabId === 'widgets' && isElectron) {
         loadAlerts()
@@ -145,7 +158,6 @@
     })
   })
 
-
   // --- Sidebar Toggle ---
   sidebarToggle.addEventListener('click', () => {
     if (window.innerWidth >= 1100) {
@@ -162,7 +174,6 @@
   }
   window.addEventListener('resize', handleResize)
   handleResize()
-
 
   // --- Power Button ---
   powerBtn.addEventListener('click', () => {
@@ -328,23 +339,23 @@
     chatMessages.appendChild(thinkingEl)
     chatMessages.scrollTop = chatMessages.scrollHeight
 
-    let replyText = 'No response.';
+    let replyText = 'No response.'
 
-    const lowerText = text.toLowerCase();
+    const lowerText = text.toLowerCase()
     if (isElectron && lowerText.startsWith('play ') && lowerText.includes(' on spotify')) {
-      const songName = lowerText.replace('play ', '').replace(' on spotify', '').trim();
+      const songName = lowerText.replace('play ', '').replace(' on spotify', '').trim()
       try {
-        const result = await ipc.invoke('play-spotify-music', songName);
-        thinkingEl.remove();
-        appendMessage('mj', result);
-        speakAndAnimate(result);
-        saveChatHistory(text, result);
+        const result = await ipc.invoke('play-spotify-music', songName)
+        thinkingEl.remove()
+        appendMessage('mj', result)
+        speakAndAnimate(result)
+        saveChatHistory(text, result)
       } catch (err) {
-        thinkingEl.remove();
-        const errTxt = 'Backend error: ' + err.message;
-        appendMessage('error', errTxt);
+        thinkingEl.remove()
+        const errTxt = 'Backend error: ' + err.message
+        appendMessage('error', errTxt)
       }
-      return;
+      return
     }
 
     if (isElectron) {
@@ -356,118 +367,132 @@
         speakAndAnimate(replyText)
       } catch (err) {
         thinkingEl.remove()
-        replyText = 'Backend error: ' + err.message;
+        replyText = 'Backend error: ' + err.message
         appendMessage('error', replyText)
       }
     } else {
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 1500))
       thinkingEl.remove()
-      replyText = 'I received: "' + text + '". Connect to Electron backend for full AI functionality.';
+      replyText =
+        'I received: "' + text + '". Connect to Electron backend for full AI functionality.'
       appendMessage('mj', replyText)
       speakAndAnimate(replyText)
     }
 
-    saveChatHistory(text, replyText);
+    saveChatHistory(text, replyText)
   }
 
   function saveChatHistory(userText, aiReply) {
-    let history = [];
+    let history = []
     try {
-      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]');
-    } catch(e) {}
-    history.push({ user: userText, ai: aiReply, time: new Date().toISOString() });
-    if(history.length > 50) history.shift(); // Keep last 50
-    localStorage.setItem('mj_chat_history', JSON.stringify(history));
-    renderChatHistory();
+      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]')
+    } catch (e) {}
+    history.push({ user: userText, ai: aiReply, time: new Date().toISOString() })
+    if (history.length > 50) history.shift() // Keep last 50
+    localStorage.setItem('mj_chat_history', JSON.stringify(history))
+    renderChatHistory()
   }
 
   function renderChatHistory() {
-    const list = document.getElementById('chat-history-list');
-    if (!list) return;
-    let history = [];
+    const list = document.getElementById('chat-history-list')
+    if (!list) return
+    let history = []
     try {
-      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]');
-    } catch(e) {}
-    
+      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]')
+    } catch (e) {}
+
     if (history.length === 0) {
-      list.innerHTML = '<button class="text-left text-xs p-2 rounded-lg hover:bg-accent truncate w-full text-muted-foreground opacity-50">No history available</button>';
-      return;
+      list.innerHTML =
+        '<button class="text-left text-xs p-2 rounded-lg hover:bg-accent truncate w-full text-muted-foreground opacity-50">No history available</button>'
+      return
     }
 
-    list.innerHTML = history.slice().reverse().map(h => `
+    list.innerHTML = history
+      .slice()
+      .reverse()
+      .map(
+        (h) => `
       <button class="text-left text-xs p-2 rounded-lg hover:bg-accent truncate w-full text-muted-foreground transition-colors group relative" title="${escapeHtml(h.user)}">
         <span class="font-semibold text-foreground block truncate">${escapeHtml(h.user)}</span>
         <span class="opacity-50 text-[10px] truncate block">${escapeHtml(h.ai).substring(0, 40)}...</span>
       </button>
-    `).join('');
+    `
+      )
+      .join('')
   }
 
-  const clearChatHistoryBtn = document.getElementById('clear-chat-history');
+  const clearChatHistoryBtn = document.getElementById('clear-chat-history')
   if (clearChatHistoryBtn) {
     clearChatHistoryBtn.addEventListener('click', () => {
-      if(confirm('Clear all chat history?')) {
-        localStorage.removeItem('mj_chat_history');
-        renderChatHistory();
+      if (confirm('Clear all chat history?')) {
+        localStorage.removeItem('mj_chat_history')
+        renderChatHistory()
       }
-    });
+    })
   }
 
   // Initial load
-  renderChatHistory();
+  renderChatHistory()
 
-  let visualizerInterval = null;
+  let visualizerInterval = null
   function speakAndAnimate(text) {
-    if (!window.speechSynthesis) return;
-    
+    if (!window.speechSynthesis) return
+
     // Clean text from markdown for speech
-    const cleanText = text.replace(/[*_#]/g, '').replace(/```[\s\S]*?```/g, 'Code block omitted.');
-    
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    
+    const cleanText = text.replace(/[*_#]/g, '').replace(/```[\s\S]*?```/g, 'Code block omitted.')
+
+    const utterance = new SpeechSynthesisUtterance(cleanText)
+    utterance.rate = 1.0
+    utterance.pitch = 1.0
+
     // Attempt to pick a good voice
-    const voices = window.speechSynthesis.getVoices();
-    const mjVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Google UK English Female')) || voices[0];
-    if (mjVoice) utterance.voice = mjVoice;
+    const voices = window.speechSynthesis.getVoices()
+    const mjVoice =
+      voices.find(
+        (v) =>
+          v.name.includes('Female') ||
+          v.name.includes('Zira') ||
+          v.name.includes('Google UK English Female')
+      ) || voices[0]
+    if (mjVoice) utterance.voice = mjVoice
 
     utterance.onstart = () => {
-      const vizNode = document.querySelector('.viz-pulse .absolute');
-      const innerNode = document.querySelector('.viz-pulse .w-6');
-      if (!vizNode || !innerNode) return;
-      
+      const vizNode = document.querySelector('.viz-pulse .absolute')
+      const innerNode = document.querySelector('.viz-pulse .w-6')
+      if (!vizNode || !innerNode) return
+
       // Start random scaling to simulate audio waveform
-      clearInterval(visualizerInterval);
+      clearInterval(visualizerInterval)
       visualizerInterval = setInterval(() => {
         if (!window.speechSynthesis.speaking) {
-          clearInterval(visualizerInterval);
-          vizNode.style.transform = 'scale(1)';
-          innerNode.style.transform = 'scale(1)';
-          return;
+          clearInterval(visualizerInterval)
+          vizNode.style.transform = 'scale(1)'
+          innerNode.style.transform = 'scale(1)'
+          return
         }
-        const scale1 = 1 + Math.random() * 0.8;
-        const scale2 = 1 + Math.random() * 0.4;
-        vizNode.style.transform = `scale(${scale1})`;
-        vizNode.style.transition = 'transform 0.1s ease';
-        innerNode.style.transform = `scale(${scale2})`;
-        innerNode.style.transition = 'transform 0.1s ease';
-      }, 100);
-    };
+        const scale1 = 1 + Math.random() * 0.8
+        const scale2 = 1 + Math.random() * 0.4
+        vizNode.style.transform = `scale(${scale1})`
+        vizNode.style.transition = 'transform 0.1s ease'
+        innerNode.style.transform = `scale(${scale2})`
+        innerNode.style.transition = 'transform 0.1s ease'
+      }, 100)
+    }
 
     utterance.onend = () => {
-      clearInterval(visualizerInterval);
-      const vizNode = document.querySelector('.viz-pulse .absolute');
-      const innerNode = document.querySelector('.viz-pulse .w-6');
+      clearInterval(visualizerInterval)
+      const vizNode = document.querySelector('.viz-pulse .absolute')
+      const innerNode = document.querySelector('.viz-pulse .w-6')
       if (vizNode && innerNode) {
-        vizNode.style.transform = 'scale(1)';
-        innerNode.style.transform = 'scale(1)';
+        vizNode.style.transform = 'scale(1)'
+        innerNode.style.transform = 'scale(1)'
       }
-    };
-    
-    utterance.onerror = utterance.onend;
+    }
 
-    window.speechSynthesis.cancel(); // Stop current speech
-    window.speechSynthesis.speak(utterance);
+    utterance.onerror = utterance.onend
+
+    window.speechSynthesis.cancel() // Stop current speech
+    window.speechSynthesis.speak(utterance)
   }
 
   function appendMessage(role, text) {
@@ -497,7 +522,8 @@
         'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 w-full text-center italic'
     }
 
-    const parsedContent = typeof marked !== 'undefined' ? marked.parse(text) : '<p>' + escapeHtml(text) + '</p>'
+    const parsedContent =
+      typeof marked !== 'undefined' ? marked.parse(text) : '<p>' + escapeHtml(text) + '</p>'
 
     wrapper.innerHTML =
       '<div class="flex items-center gap-2 px-2">' +
@@ -528,7 +554,7 @@
       if (file) handleImageFile(file)
     })
   }
-  
+
   if (chatInput) {
     chatInput.addEventListener('dragover', (e) => {
       e.preventDefault()
@@ -670,40 +696,91 @@
   })
   // --- Sub Agent Input (routed through chat-with-ai) ---
   const addAgentBtn = document.getElementById('add-agent-btn')
-  if (addAgentBtn) {
-    addAgentBtn.addEventListener('click', () => {
-      const name = prompt('Enter custom agent name (e.g., "My GPT-4"):')
-      if (!name || !name.trim()) return
-      const select = document.getElementById('agent-select')
-      if (select) {
-        const opt = document.createElement('option')
-        opt.value = select.options.length + 1
-        opt.textContent = name.trim()
-        select.appendChild(opt)
-        select.value = opt.value
-        const subInput = document.getElementById('subagent-input')
-        if (subInput) subInput.placeholder = `Message ${name.trim()}...`
-      }
-    })
-  }
-
   const agentSelectEl = document.getElementById('agent-select')
-  if (agentSelectEl) {
-    agentSelectEl.addEventListener('change', () => {
-      const name = agentSelectEl.options[agentSelectEl.selectedIndex]?.text || 'Agent'
-      const subInput = document.getElementById('subagent-input')
-      if (subInput) subInput.placeholder = `Message ${name}...`
-    })
-  }
-
   const subagentInput = document.getElementById('subagent-input')
   const subagentSend = document.getElementById('subagent-send')
   const subagentMessages = document.getElementById('subagent-messages')
 
+  // Load available providers for Sub Agents
+  async function loadSubAgentProviders() {
+    if (!isElectron || !agentSelectEl) return
+
+    try {
+      const providerConfig = await ipc.invoke('provider-load-config')
+      if (!providerConfig) return
+
+      // Clear existing options
+      agentSelectEl.innerHTML = ''
+
+      // Add available providers that have API keys
+      const availableProviders = [
+        { key: 'gemini', name: 'Google Gemini', icon: '🤖' },
+        { key: 'groq', name: 'Groq', icon: '⚡' },
+        { key: 'openai', name: 'OpenAI', icon: '🟢' },
+        { key: 'anthropic', name: 'Anthropic', icon: '🟣' },
+        { key: 'deepseek', name: 'DeepSeek', icon: '🌊' },
+        { key: 'mistral', name: 'Mistral', icon: '🌪️' },
+        { key: 'openrouter', name: 'OpenRouter', icon: '🔀' },
+        { key: 'xai', name: 'xAI (Grok)', icon: '🚀' },
+        { key: 'nvidia_nim', name: 'Nvidia NIM', icon: '🟢' },
+        { key: 'huggingface', name: 'Hugging Face', icon: '🤗' },
+        { key: 'tavily', name: 'Tavily Search', icon: '🔍' }
+      ]
+
+      availableProviders.forEach(provider => {
+        if (providerConfig[provider.key]?.apiKey) {
+          const opt = document.createElement('option')
+          opt.value = provider.key
+          opt.textContent = `${provider.icon} ${provider.name}`
+          agentSelectEl.appendChild(opt)
+        }
+      })
+
+      // Update placeholder if we have providers
+      if (agentSelectEl.options.length > 0) {
+        updateSubAgentPlaceholder()
+      }
+    } catch (error) {
+      console.error('Failed to load sub agent providers:', error)
+    }
+  }
+
+  function updateSubAgentPlaceholder() {
+    if (!agentSelectEl || !subagentInput) return
+    const selectedOption = agentSelectEl.options[agentSelectEl.selectedIndex]
+    if (selectedOption) {
+      const providerName = selectedOption.textContent.split(' ').slice(1).join(' ') // Remove icon
+      subagentInput.placeholder = `Message ${providerName}...`
+    }
+  }
+
+  if (addAgentBtn) {
+    addAgentBtn.addEventListener('click', () => {
+      const name = prompt('Enter custom agent name (e.g., "My GPT-4"):')
+      if (!name || !name.trim()) return
+      if (agentSelectEl) {
+        const opt = document.createElement('option')
+        opt.value = 'custom-' + Date.now()
+        opt.textContent = name.trim()
+        agentSelectEl.appendChild(opt)
+        agentSelectEl.value = opt.value
+        updateSubAgentPlaceholder()
+      }
+    })
+  }
+
+  if (agentSelectEl) {
+    agentSelectEl.addEventListener('change', updateSubAgentPlaceholder)
+  }
+
   async function sendSubAgentMessage() {
     const text = subagentInput ? subagentInput.value.trim() : ''
     if (!text) return
-    const selectedAgent = agentSelectEl ? agentSelectEl.options[agentSelectEl.selectedIndex].text : 'AI'
+
+    const selectedProvider = agentSelectEl ? agentSelectEl.value : 'auto'
+    const selectedAgentName = agentSelectEl
+      ? agentSelectEl.options[agentSelectEl.selectedIndex]?.text || 'AI'
+      : 'AI'
 
     // Show user message
     if (subagentMessages) {
@@ -718,21 +795,30 @@
 
     if (isElectron) {
       try {
-        const prefix = `[Sub-Agent: ${selectedAgent}] `
-        const reply = await ipc.invoke('chat-with-ai', prefix + text)
+        // Route to specific provider
+        const reply = await ipc.invoke('chat-with-ai', {
+          text: text,
+          provider: selectedProvider
+        })
+
         if (subagentMessages) {
-          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-card border border-border text-sm"><span class="text-[10px] font-bold text-primary uppercase block mb-1">${escapeHtml(selectedAgent)}</span>${escapeHtml(reply || 'No response')}</div></div>`
+          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-card border border-border text-sm"><span class="text-[10px] font-bold text-primary uppercase block mb-1">${escapeHtml(selectedAgentName)}</span>${escapeHtml(reply || 'No response')}</div></div>`
           subagentMessages.scrollTop = subagentMessages.scrollHeight
         }
       } catch (err) {
+        console.error('Sub agent chat failed:', err)
         if (subagentMessages) {
-          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-sm text-rose-500">Error: ${err.message || 'Failed to reach AI'}</div></div>`
+          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-sm text-red-600"><span class="text-[10px] font-bold uppercase block mb-1">Error</span>Failed to communicate with ${selectedAgentName}</div></div>`
+          subagentMessages.scrollTop = subagentMessages.scrollHeight
         }
+      } finally {
+        subagentSend.disabled = false
       }
     } else {
       if (subagentMessages) {
         subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-card border border-border text-sm">Sub Agent chat requires Electron backend. Running in demo mode.</div></div>`
       }
+      subagentSend.disabled = false
     }
   }
 
@@ -777,20 +863,19 @@
       if (apps && apps.length > 0 && appsGrid) {
         // Helper to generate a consistent color based on string
         const stringToColor = (str) => {
-          let hash = 0;
-          for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-          const hue = Math.abs(hash) % 360;
-          return `hsl(${hue}, 70%, 60%)`;
-        };
+          let hash = 0
+          for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+          const hue = Math.abs(hash) % 360
+          return `hsl(${hue}, 70%, 60%)`
+        }
 
         // Populate bottom grid with all apps
         appsGrid.innerHTML = apps
-          .map(
-            (a) => {
-              const letter = (a.name || 'A').charAt(0).toUpperCase();
-              const color = stringToColor(a.name);
-              const isAllowed = Math.random() > 0.3; // Default randomly for demo, or all true
-              return `
+          .map((a) => {
+            const letter = (a.name || 'A').charAt(0).toUpperCase()
+            const color = stringToColor(a.name)
+            const isAllowed = Math.random() > 0.3 // Default randomly for demo, or all true
+            return `
                     <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="${escapeHtml(a.name)}">
                         <div class="flex items-center gap-2 md:gap-3 min-w-0">
                             <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 text-white shadow-sm font-bold text-lg md:text-xl" style="background-color: ${color}">
@@ -805,8 +890,7 @@
                         </button>
                     </div>
                 `
-            }
-          )
+          })
           .join('')
 
         // Populate active feed in Monitor
@@ -846,9 +930,10 @@
 
   async function loadQuarantine() {
     if (!isElectron || !quarantineListEl) return
-    
-    quarantineListEl.innerHTML = '<div class="p-6 text-center opacity-50"><p class="text-sm font-medium animate-pulse">Scanning Windows Defender Quarantine...</p></div>'
-    
+
+    quarantineListEl.innerHTML =
+      '<div class="p-6 text-center opacity-50"><p class="text-sm font-medium animate-pulse">Scanning Windows Defender Quarantine...</p></div>'
+
     try {
       const items = await ipc.invoke('get-defender-quarantine')
       if (!items || items.length === 0) {
@@ -880,98 +965,101 @@
 
   window.restoreQuarantined = async function (id) {
     if (!isElectron) return
-    const btn = event.target;
-    btn.textContent = 'Wait...';
+    const btn = event.target
+    btn.textContent = 'Wait...'
     await ipc.invoke('restore-defender-quarantine', id)
     loadQuarantine()
   }
 
   window.deleteQuarantined = async function (id) {
     if (!isElectron) return
-    const btn = event.target;
-    btn.textContent = 'Wait...';
+    const btn = event.target
+    btn.textContent = 'Wait...'
     await ipc.invoke('remove-defender-quarantine', id)
     loadQuarantine()
   }
 
   async function loadSecurityStatus() {
-    if (!isElectron) return;
+    if (!isElectron) return
     try {
-      const status = await ipc.invoke('get-security-status');
+      const status = await ipc.invoke('get-security-status')
       if (status) {
-        const fw = document.getElementById('sec-firewall');
+        const fw = document.getElementById('sec-firewall')
         if (fw) {
-          fw.textContent = status.firewall;
-          fw.className = `text-sm font-bold ${status.firewall === 'ACTIVE' ? 'text-emerald-500' : 'text-rose-500'}`;
-        }
-        
-        const av = document.getElementById('sec-antivirus');
-        if (av) {
-          av.textContent = status.antivirus;
-          av.className = `text-sm font-bold ${status.antivirus === 'ACTIVE' ? 'text-emerald-500' : 'text-rose-500'}`;
+          fw.textContent = status.firewall
+          fw.className = `text-sm font-bold ${status.firewall === 'ACTIVE' ? 'text-emerald-500' : 'text-rose-500'}`
         }
 
-        const ls = document.getElementById('sec-lastscan');
-        if (ls) {
-          ls.textContent = status.lastScan <= 1 ? 'Today' : `${status.lastScan} days ago`;
+        const av = document.getElementById('sec-antivirus')
+        if (av) {
+          av.textContent = status.antivirus
+          av.className = `text-sm font-bold ${status.antivirus === 'ACTIVE' ? 'text-emerald-500' : 'text-rose-500'}`
         }
-        
-        const thr = document.getElementById('sec-threats');
+
+        const ls = document.getElementById('sec-lastscan')
+        if (ls) {
+          ls.textContent = status.lastScan <= 1 ? 'Today' : `${status.lastScan} days ago`
+        }
+
+        const thr = document.getElementById('sec-threats')
         if (thr) {
-          const items = await ipc.invoke('get-defender-quarantine');
-          const count = items && items.length ? items.length : 0;
-          thr.textContent = count === 0 ? 'None' : count;
-          thr.className = `text-sm font-bold ${count === 0 ? 'text-emerald-500' : 'text-rose-500'}`;
+          const items = await ipc.invoke('get-defender-quarantine')
+          const count = items && items.length ? items.length : 0
+          thr.textContent = count === 0 ? 'None' : count
+          thr.className = `text-sm font-bold ${count === 0 ? 'text-emerald-500' : 'text-rose-500'}`
         }
       } else {
-        const elements = ['sec-firewall', 'sec-antivirus'];
-        elements.forEach(id => {
-          const el = document.getElementById(id);
+        const elements = ['sec-firewall', 'sec-antivirus']
+        elements.forEach((id) => {
+          const el = document.getElementById(id)
           if (el) {
-            el.textContent = 'OFFLINE';
-            el.className = 'text-sm font-bold text-rose-500';
+            el.textContent = 'OFFLINE'
+            el.className = 'text-sm font-bold text-rose-500'
           }
-        });
-        const ls = document.getElementById('sec-lastscan');
-        if (ls) ls.textContent = 'Unknown';
-        const thr = document.getElementById('sec-threats');
+        })
+        const ls = document.getElementById('sec-lastscan')
+        if (ls) ls.textContent = 'Unknown'
+        const thr = document.getElementById('sec-threats')
         if (thr) {
-          thr.textContent = 'Unknown';
-          thr.className = 'text-sm font-bold text-rose-500';
+          thr.textContent = 'Unknown'
+          thr.className = 'text-sm font-bold text-rose-500'
         }
       }
     } catch (e) {
-      console.error('Failed to load security status:', e);
+      console.error('Failed to load security status:', e)
     }
   }
 
-  if (refreshQuarantineBtn) refreshQuarantineBtn.addEventListener('click', () => { loadQuarantine(); loadSecurityStatus(); });
-  // Auto-load on settings/privacy tab open
-  document
-    .querySelector('[data-tab="settings"]')
-    ?.addEventListener('click', () => {
-      setTimeout(() => {
-        loadQuarantine();
-        loadSecurityStatus();
-      }, 200);
+  if (refreshQuarantineBtn)
+    refreshQuarantineBtn.addEventListener('click', () => {
+      loadQuarantine()
+      loadSecurityStatus()
     })
+  // Auto-load on settings/privacy tab open
+  document.querySelector('[data-tab="settings"]')?.addEventListener('click', () => {
+    setTimeout(() => {
+      loadQuarantine()
+      loadSecurityStatus()
+    }, 200)
+  })
 
   const runFullScanBtn = document.getElementById('run-full-scan-btn')
   if (runFullScanBtn) {
     runFullScanBtn.addEventListener('click', async () => {
-      runFullScanBtn.disabled = true;
-      runFullScanBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin inline mr-2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> SCANNING...';
-      const success = await ipc.invoke('run-full-scan');
+      runFullScanBtn.disabled = true
+      runFullScanBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin inline mr-2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> SCANNING...'
+      const success = await ipc.invoke('run-full-scan')
       if (success) {
-        runFullScanBtn.innerHTML = 'SCAN STARTED!';
+        runFullScanBtn.innerHTML = 'SCAN STARTED!'
       } else {
-        runFullScanBtn.innerHTML = 'SCAN FAILED';
+        runFullScanBtn.innerHTML = 'SCAN FAILED'
       }
       setTimeout(() => {
-        runFullScanBtn.innerHTML = 'RUN FULL SYSTEM SCAN';
-        runFullScanBtn.disabled = false;
-      }, 5000);
-    });
+        runFullScanBtn.innerHTML = 'RUN FULL SYSTEM SCAN'
+        runFullScanBtn.disabled = false
+      }, 5000)
+    })
   }
 
   // ========= SAVE AGENT API KEYS (includes Telegram/Email) =========
@@ -1012,55 +1100,90 @@
         showToast('Failed to save API keys', 'error')
       }
     } else {
-      showToast('API key encryption requires the Electron app.', 'error');
+      showToast('API key encryption requires the Electron app.', 'error')
     }
   }
 
-  document.querySelectorAll('.agent-edit-btn').forEach(btn => {
+  document.querySelectorAll('.agent-edit-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const targetId = btn.getAttribute('data-target');
-      const inputEl = document.getElementById(targetId);
-      if (!inputEl) return;
-      
+      const targetId = btn.getAttribute('data-target')
+      const inputEl = document.getElementById(targetId)
+      if (!inputEl) return
+
       if (inputEl.hasAttribute('readonly')) {
         // Switch to edit mode
-        inputEl.removeAttribute('readonly');
-        inputEl.focus();
-        btn.textContent = 'Save';
-        btn.classList.add('bg-emerald-500/20', 'text-emerald-500');
+        inputEl.removeAttribute('readonly')
+        inputEl.focus()
+        btn.textContent = 'Save'
+        btn.classList.add('bg-emerald-500/20', 'text-emerald-500')
       } else {
         // Save mode
-        inputEl.setAttribute('readonly', 'true');
-        btn.textContent = 'Edit';
-        btn.classList.remove('bg-emerald-500/20', 'text-emerald-500');
-        await saveAllAgentConfigs();
+        inputEl.setAttribute('readonly', 'true')
+        btn.textContent = 'Edit'
+        btn.classList.remove('bg-emerald-500/20', 'text-emerald-500')
+        await saveAllAgentConfigs()
       }
-    });
-  });
+    })
+  })
 
   // ========= LOAD SAVED KEYS (populate Settings fields) =========
   async function loadSavedKeys() {
     if (!isElectron) return
     try {
-      const keys = await ipc.invoke('secure-get-keys')
-      if (keys && keys.groqKey) {
-        try {
-          const config = JSON.parse(keys.groqKey)
-          if (config.brain?.provider) { const el = document.getElementById('brain-provider'); if (el) el.value = config.brain.provider }
-          if (config.brain?.key) { const el = document.getElementById('brain-api-key'); if (el) el.value = config.brain.key }
-          if (config.vision?.provider) { const el = document.getElementById('vision-provider'); if (el) el.value = config.vision.provider }
-          if (config.vision?.key) { const el = document.getElementById('vision-api-key'); if (el) el.value = config.vision.key }
-          if (config.code?.provider) { const el = document.getElementById('code-provider'); if (el) el.value = config.code.provider }
-          if (config.code?.key) { const el = document.getElementById('code-api-key'); if (el) el.value = config.code.key }
-          if (config.tavily) { const el = document.getElementById('tavily-api-key'); if (el) el.value = config.tavily }
-          if (config.image) { const el = document.getElementById('image-api-key'); if (el) el.value = config.image }
-          if (config.telegram?.token) { const el = document.getElementById('telegram-token'); if (el) el.value = config.telegram.token }
-          if (config.telegram?.chatId) { const el = document.getElementById('telegram-chat-id'); if (el) el.value = config.telegram.chatId }
-          if (config.email?.address) { const el = document.getElementById('email-address'); if (el) el.value = config.email.address }
-          if (config.email?.password) { const el = document.getElementById('email-password'); if (el) el.value = config.email.password }
-        } catch (parseErr) { /* config wasn't JSON, skip */ }
+      providerConfig = await ipc.invoke('provider-load-config')
+      if (providerConfig) {
+        // Populate API key fields
+        if (geminiKey && providerConfig.gemini?.apiKey) {
+          geminiKey.value = providerConfig.gemini.apiKey
+        }
+        if (groqKey && providerConfig.groq?.apiKey) {
+          groqKey.value = providerConfig.groq.apiKey
+        }
+        if (openaiKey && providerConfig.openai?.apiKey) {
+          openaiKey.value = providerConfig.openai.apiKey
+        }
+        if (anthropicKey && providerConfig.anthropic?.apiKey) {
+          anthropicKey.value = providerConfig.anthropic.apiKey
+        }
+        if (deepseekKey && providerConfig.deepseek?.apiKey) {
+          deepseekKey.value = providerConfig.deepseek.apiKey
+        }
+        if (mistralKey && providerConfig.mistral?.apiKey) {
+          mistralKey.value = providerConfig.mistral.apiKey
+        }
+        if (openrouterKey && providerConfig.openrouter?.apiKey) {
+          openrouterKey.value = providerConfig.openrouter.apiKey
+        }
+        if (xaiKey && providerConfig.xai?.apiKey) {
+          xaiKey.value = providerConfig.xai.apiKey
+        }
+        if (nvidiaKey && providerConfig.nvidia_nim?.apiKey) {
+          nvidiaKey.value = providerConfig.nvidia_nim.apiKey
+        }
+        if (hfKey && providerConfig.huggingface?.apiKey) {
+          hfKey.value = providerConfig.huggingface.apiKey
+        }
+        if (tavilyKey && providerConfig.tavily?.apiKey) {
+          tavilyKey.value = providerConfig.tavily.apiKey
+        }
+
+        // Populate agent provider selects (map provider names)
+        const brainProvider = document.getElementById('brain-provider')
+        if (brainProvider && providerConfig.brain?.provider) {
+          brainProvider.value = providerConfig.brain.provider
+        }
+        const visionProvider = document.getElementById('vision-provider')
+        if (visionProvider && providerConfig.vision?.provider) {
+          visionProvider.value = providerConfig.vision.provider
+        }
+        const codeProvider = document.getElementById('code-provider')
+        if (codeProvider && providerConfig.code?.provider) {
+          codeProvider.value = providerConfig.code.provider
+        }
       }
-    } catch (e) { console.error('Load keys failed:', e) }
+    } catch (e) {
+      console.error('Load provider config failed:', e)
+    }
   }
 
   // (Old EXTERNAL INTEGRATIONS SAVE/EDIT TOGGLE logic removed, now handled by individual edit buttons)
@@ -1177,7 +1300,7 @@
   const phoneStorage = document.getElementById('phone-storage')
   const phoneTemp = document.getElementById('phone-temp')
   let adbTelemetryInterval = null
-  
+
   // QR Code Elements
   const adbQrBtn = document.getElementById('adb-qr-btn')
   const qrModal = document.getElementById('qr-modal')
@@ -1192,11 +1315,16 @@
       const ip = adbIpInput.value.trim() || '192.168.1.x'
       const port = adbPortInput.value.trim() || '5555'
       const qrText = `tcpip://${ip}:${port}`
-      
+
       if (typeof QRCode !== 'undefined') {
-        QRCode.toCanvas(qrCanvas, qrText, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } }, function (error) {
-          if (error) console.error(error)
-        })
+        QRCode.toCanvas(
+          qrCanvas,
+          qrText,
+          { width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' } },
+          function (error) {
+            if (error) console.error(error)
+          }
+        )
       } else {
         showToast('QR Library failed to load.', 'error')
       }
@@ -1233,7 +1361,10 @@
         startAdbTelemetry()
       } else {
         adbConnectBtn.textContent = 'CONNECT'
-        showToast('Connection refused: ' + (res?.error || 'Ensure TCP/IP daemon is running.'), 'error')
+        showToast(
+          'Connection refused: ' + (res?.error || 'Ensure TCP/IP daemon is running.'),
+          'error'
+        )
       }
     })
   }
@@ -1290,7 +1421,7 @@
         const researchTab = document.querySelector('[data-tab="research"]')
         if (researchTab) researchTab.click()
       } else {
-        showToast('Deep Research requires Electron backend.', 'error');
+        showToast('Deep Research requires Electron backend.', 'error')
       }
     })
   }
@@ -1315,7 +1446,9 @@
         try {
           await ipc.invoke('dropzone-toggle')
           btnSmartDropzones.textContent = '✅ DropZones Active'
-          setTimeout(() => { btnSmartDropzones.textContent = 'Configure Zones' }, 2000)
+          setTimeout(() => {
+            btnSmartDropzones.textContent = 'Configure Zones'
+          }, 2000)
         } catch (e) {
           btnSmartDropzones.textContent = 'Configure Zones'
           console.error('DropZone error:', e)
@@ -1338,7 +1471,7 @@
           }
         }
       } else {
-        showToast('Ghost Control requires Native OS access.', 'error');
+        showToast('Ghost Control requires Native OS access.', 'error')
       }
     })
   }
@@ -1438,146 +1571,152 @@
 
   // Biometric Tab
   async function loadEnrolledFaces() {
-    if (!isElectron) return;
-    const enrolledContainer = document.getElementById('enrolled-faces');
-    if (!enrolledContainer) return;
-    
-    enrolledContainer.innerHTML = '<div class="text-sm opacity-50">Loading faces...</div>';
+    if (!isElectron) return
+    const enrolledContainer = document.getElementById('enrolled-faces')
+    if (!enrolledContainer) return
+
+    enrolledContainer.innerHTML = '<div class="text-sm opacity-50">Loading faces...</div>'
     try {
-      const res = await ipc.invoke('biometric-list');
+      const res = await ipc.invoke('biometric-list')
       if (res && res.success && res.faces && res.faces.length > 0) {
-        enrolledContainer.innerHTML = res.faces.map(f => `
+        enrolledContainer.innerHTML = res.faces
+          .map(
+            (f) => `
           <div class="flex items-center gap-3 p-3 rounded-xl border border-border bg-background">
-            <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">${f.substring(0,2).toUpperCase()}</div>
+            <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">${f.substring(0, 2).toUpperCase()}</div>
             <span class="text-sm font-medium">${f}</span>
           </div>
-        `).join('');
+        `
+          )
+          .join('')
       } else {
-        enrolledContainer.innerHTML = '<div class="text-sm opacity-50">No faces enrolled yet.</div>';
+        enrolledContainer.innerHTML = '<div class="text-sm opacity-50">No faces enrolled yet.</div>'
       }
     } catch (err) {
-      console.error(err);
-      enrolledContainer.innerHTML = '<div class="text-sm text-rose-500">Failed to load faces.</div>';
+      console.error(err)
+      enrolledContainer.innerHTML = '<div class="text-sm text-rose-500">Failed to load faces.</div>'
     }
   }
 
   // Hook into tab opening to load faces
-  document.querySelector('[data-tab="biometric"]')?.addEventListener('click', loadEnrolledFaces);
+  document.querySelector('[data-tab="biometric"]')?.addEventListener('click', loadEnrolledFaces)
 
-  const biometricLockToggle = document.getElementById('biometric-lock-toggle');
-  let autoLockInterval = null;
+  const biometricLockToggle = document.getElementById('biometric-lock-toggle')
+  let autoLockInterval = null
 
   async function checkCameraAndToggle(state) {
     if (state) {
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const hasCamera = devices.some(d => d.kind === 'videoinput');
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const hasCamera = devices.some((d) => d.kind === 'videoinput')
         if (!hasCamera) {
-          showToast('No camera attached. Cannot enable Auto-Lock.', 'error');
-          biometricLockToggle.checked = false;
-          localStorage.setItem('biometricLock', 'false');
-          return;
+          showToast('No camera attached. Cannot enable Auto-Lock.', 'error')
+          biometricLockToggle.checked = false
+          localStorage.setItem('biometricLock', 'false')
+          return
         }
-        showToast('Biometric Auto-Lock enabled.', 'success');
-        localStorage.setItem('biometricLock', 'true');
-        
+        showToast('Biometric Auto-Lock enabled.', 'success')
+        localStorage.setItem('biometricLock', 'true')
+
         // Start Auto-Lock loop (checks every 2 mins)
-        if (autoLockInterval) clearInterval(autoLockInterval);
+        if (autoLockInterval) clearInterval(autoLockInterval)
         autoLockInterval = setInterval(async () => {
           if (isElectron) {
             try {
-              const res = await ipc.invoke('biometric-test');
+              const res = await ipc.invoke('biometric-test')
               if (!res) {
-                 ipc.send('trigger-lockdown');
+                ipc.send('trigger-lockdown')
               }
-            } catch(e) { console.error('Lock check failed', e) }
+            } catch (e) {
+              console.error('Lock check failed', e)
+            }
           }
-        }, 120000);
+        }, 120000)
       } catch (err) {
-        showToast('Camera check failed.', 'error');
-        biometricLockToggle.checked = false;
-        localStorage.setItem('biometricLock', 'false');
+        showToast('Camera check failed.', 'error')
+        biometricLockToggle.checked = false
+        localStorage.setItem('biometricLock', 'false')
       }
     } else {
-      showToast('Biometric Auto-Lock disabled.', 'info');
-      localStorage.setItem('biometricLock', 'false');
-      if (autoLockInterval) clearInterval(autoLockInterval);
+      showToast('Biometric Auto-Lock disabled.', 'info')
+      localStorage.setItem('biometricLock', 'false')
+      if (autoLockInterval) clearInterval(autoLockInterval)
     }
   }
 
   if (biometricLockToggle) {
-    const isLockOn = localStorage.getItem('biometricLock') === 'true';
-    biometricLockToggle.checked = isLockOn;
-    if (isLockOn) checkCameraAndToggle(true);
+    const isLockOn = localStorage.getItem('biometricLock') === 'true'
+    biometricLockToggle.checked = isLockOn
+    if (isLockOn) checkCameraAndToggle(true)
 
     biometricLockToggle.addEventListener('change', (e) => {
-      checkCameraAndToggle(e.target.checked);
-    });
+      checkCameraAndToggle(e.target.checked)
+    })
   }
 
   if (scanFaceBtn) {
     scanFaceBtn.addEventListener('click', async () => {
-      scanFaceBtn.textContent = 'Scanning...';
-      scanFaceBtn.classList.add('opacity-50', 'pointer-events-none');
+      scanFaceBtn.textContent = 'Scanning...'
+      scanFaceBtn.classList.add('opacity-50', 'pointer-events-none')
       if (isElectron) {
         try {
-          const result = await ipc.invoke('biometric-scan');
-          if (result) showToast('Face detected and scanned.', 'success');
-          else showToast('No face detected.', 'error');
+          const result = await ipc.invoke('biometric-scan')
+          if (result) showToast('Face detected and scanned.', 'success')
+          else showToast('No face detected.', 'error')
         } catch (err) {
-          showToast('Scan failed.', 'error');
+          showToast('Scan failed.', 'error')
         }
       } else {
-        showToast('Scanning demo mode...', 'info');
+        showToast('Scanning demo mode...', 'info')
       }
-      scanFaceBtn.textContent = 'Scan Face';
-      scanFaceBtn.classList.remove('opacity-50', 'pointer-events-none');
+      scanFaceBtn.textContent = 'Scan Face'
+      scanFaceBtn.classList.remove('opacity-50', 'pointer-events-none')
     })
   }
 
   if (enrollFaceBtn) {
     enrollFaceBtn.addEventListener('click', async () => {
-      const name = prompt('Enter a name for this face:');
-      if (!name) return;
-      enrollFaceBtn.textContent = 'Enrolling...';
-      enrollFaceBtn.classList.add('opacity-50', 'pointer-events-none');
+      const name = prompt('Enter a name for this face:')
+      if (!name) return
+      enrollFaceBtn.textContent = 'Enrolling...'
+      enrollFaceBtn.classList.add('opacity-50', 'pointer-events-none')
       if (isElectron) {
         try {
-          const result = await ipc.invoke('biometric-enroll', { name });
+          const result = await ipc.invoke('biometric-enroll', { name })
           if (result) {
-            showToast('Face enrolled successfully.', 'success');
-            loadEnrolledFaces();
+            showToast('Face enrolled successfully.', 'success')
+            loadEnrolledFaces()
           } else {
-            showToast('Enrollment failed.', 'error');
+            showToast('Enrollment failed.', 'error')
           }
         } catch (err) {
-          showToast('Enrollment failed.', 'error');
+          showToast('Enrollment failed.', 'error')
         }
       } else {
-        showToast('Enrolled demo face.', 'success');
+        showToast('Enrolled demo face.', 'success')
       }
-      enrollFaceBtn.textContent = 'Enroll New Face';
-      enrollFaceBtn.classList.remove('opacity-50', 'pointer-events-none');
+      enrollFaceBtn.textContent = 'Enroll New Face'
+      enrollFaceBtn.classList.remove('opacity-50', 'pointer-events-none')
     })
   }
 
   if (testRecognitionBtn) {
     testRecognitionBtn.addEventListener('click', async () => {
-      testRecognitionBtn.textContent = 'Testing...';
-      testRecognitionBtn.classList.add('opacity-50', 'pointer-events-none');
+      testRecognitionBtn.textContent = 'Testing...'
+      testRecognitionBtn.classList.add('opacity-50', 'pointer-events-none')
       if (isElectron) {
         try {
-          const result = await ipc.invoke('biometric-test');
-          if (result) showToast('Face recognized successfully.', 'success');
-          else showToast('Face recognition failed.', 'error');
+          const result = await ipc.invoke('biometric-test')
+          if (result) showToast('Face recognized successfully.', 'success')
+          else showToast('Face recognition failed.', 'error')
         } catch (err) {
-          showToast('Test failed.', 'error');
+          showToast('Test failed.', 'error')
         }
       } else {
-        showToast('Test passed in demo mode.', 'success');
+        showToast('Test passed in demo mode.', 'success')
       }
-      testRecognitionBtn.textContent = 'Test Recognition';
-      testRecognitionBtn.classList.remove('opacity-50', 'pointer-events-none');
+      testRecognitionBtn.textContent = 'Test Recognition'
+      testRecognitionBtn.classList.remove('opacity-50', 'pointer-events-none')
     })
   }
 
@@ -1656,10 +1795,13 @@
       const alertsList = document.getElementById('alerts-list')
       if (!alertsList) return
       if (!alerts || alerts.length === 0) {
-        alertsList.innerHTML = '<div class="p-12 text-center border-2 border-dashed border-border rounded-3xl opacity-50"><p class="text-sm font-medium">No active alerts or notifications.</p></div>'
+        alertsList.innerHTML =
+          '<div class="p-12 text-center border-2 border-dashed border-border rounded-3xl opacity-50"><p class="text-sm font-medium">No active alerts or notifications.</p></div>'
         return
       }
-      alertsList.innerHTML = alerts.map(a => `
+      alertsList.innerHTML = alerts
+        .map(
+          (a) => `
         <div class="p-4 rounded-2xl border bg-card border-border shadow-sm flex items-center gap-4">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg ${a.type === 'error' ? 'bg-rose-500/10 text-rose-500' : a.type === 'warning' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}">
             ${a.type === 'error' ? '🚨' : a.type === 'warning' ? '⚠️' : 'ℹ️'}
@@ -1669,8 +1811,12 @@
             <p class="text-xs opacity-50">${a.timestamp ? new Date(a.timestamp).toLocaleString() : ''}</p>
           </div>
         </div>
-      `).join('')
-    } catch (e) { console.error('Load alerts failed:', e) }
+      `
+        )
+        .join('')
+    } catch (e) {
+      console.error('Load alerts failed:', e)
+    }
   }
 
   if (clearAlertsBtn) {
@@ -1692,7 +1838,10 @@
       if (isElectron) {
         try {
           const success = await ipc.invoke('privacy-export')
-          showToast(success ? 'Data exported successfully' : 'Export failed', success ? 'success' : 'error')
+          showToast(
+            success ? 'Data exported successfully' : 'Export failed',
+            success ? 'success' : 'error'
+          )
         } catch (err) {
           console.error('Export failed:', err)
         }
@@ -1898,25 +2047,48 @@
     })
   }
 
-  // Settings Tab
-  if (saveKeysBtn) {
+  // Make API key inputs editable on click
+  [geminiKey, groqKey, openaiKey, anthropicKey, deepseekKey, mistralKey, openrouterKey, xaiKey, nvidiaKey, hfKey, tavilyKey].forEach(input => {
+    if (input) {
+      input.addEventListener('click', () => {
+        if (input.hasAttribute('readonly')) {
+          input.removeAttribute('readonly')
+          input.focus()
+        }
+      })
+      input.addEventListener('blur', () => {
+        input.setAttribute('readonly', 'true')
+      })
+    }
+  })
     saveKeysBtn.addEventListener('click', async () => {
       const config = {
-        gemini: geminiKey.value.trim(),
-        groq: groqKey.value.trim(),
-        hf: hfKey.value.trim(),
-        tavily: tavilyKey.value.trim()
+        gemini: { apiKey: geminiKey.value.trim() },
+        groq: { apiKey: groqKey.value.trim() },
+        openai: { apiKey: openaiKey.value.trim() },
+        anthropic: { apiKey: anthropicKey.value.trim() },
+        deepseek: { apiKey: deepseekKey.value.trim() },
+        mistral: { apiKey: mistralKey.value.trim() },
+        openrouter: { apiKey: openrouterKey.value.trim() },
+        xai: { apiKey: xaiKey.value.trim() },
+        nvidia_nim: { apiKey: nvidiaKey.value.trim() },
+        huggingface: { apiKey: hfKey.value.trim() },
+        tavily: { apiKey: tavilyKey.value.trim() }
       }
 
       if (isElectron) {
         try {
-          await ipc.invoke('settings-save-keys', config)
-          saveKeysBtn.textContent = '✅ Saved!'
-          setTimeout(() => {
-            saveKeysBtn.textContent = '💾 Save API Keys'
-          }, 2000)
+          const success = await ipc.invoke('provider-save-config', config)
+          if (success) {
+            saveKeysBtn.textContent = '✅ Saved!'
+            setTimeout(() => {
+              saveKeysBtn.textContent = '💾 Save API Keys'
+            }, 2000)
+          } else {
+            console.error('Save provider config failed')
+          }
         } catch (err) {
-          console.error('Save keys failed:', err)
+          console.error('Save provider config failed:', err)
         }
       }
     })
@@ -1961,151 +2133,195 @@
   }
 
   // ========= COMMAND PALETTE (Ctrl+K) =========
-  const cmdBackdrop = document.getElementById('cmd-palette-backdrop');
-  const cmdPalette = document.getElementById('cmd-palette');
-  const cmdInput = document.getElementById('cmd-input');
-  const cmdResults = document.getElementById('cmd-results');
-  
+  const cmdBackdrop = document.getElementById('cmd-palette-backdrop')
+  const cmdPalette = document.getElementById('cmd-palette')
+  const cmdInput = document.getElementById('cmd-input')
+  const cmdResults = document.getElementById('cmd-results')
+
   const commands = [
-    { name: 'Dashboard', icon: '🏠', action: () => document.querySelector('[data-tab="dashboard"]')?.click() },
-    { name: 'Chat with IRIS', icon: '💬', action: () => document.querySelector('[data-tab="chat"]')?.click() },
-    { name: 'System Monitor', icon: '📈', action: () => document.querySelector('[data-tab="monitor"]')?.click() },
-    { name: 'Security & Defender', icon: '🛡️', action: () => document.querySelector('[data-tab="security"]')?.click() },
-    { name: 'Phone Link (ADB)', icon: '📱', action: () => document.querySelector('[data-tab="phone"]')?.click() },
-    { name: 'App Library', icon: '📦', action: () => document.querySelector('[data-tab="apps"]')?.click() },
-    { name: 'Settings', icon: '⚙️', action: () => document.querySelector('[data-tab="settings"]')?.click() },
-    { name: 'Toggle Dark Mode', icon: '🌗', action: () => document.getElementById('theme-toggle')?.click() },
-    { name: 'Toggle Power', icon: '⚡', action: () => document.getElementById('power-btn')?.click() }
-  ];
+    {
+      name: 'Dashboard',
+      icon: '🏠',
+      action: () => document.querySelector('[data-tab="dashboard"]')?.click()
+    },
+    {
+      name: 'Chat with IRIS',
+      icon: '💬',
+      action: () => document.querySelector('[data-tab="chat"]')?.click()
+    },
+    {
+      name: 'System Monitor',
+      icon: '📈',
+      action: () => document.querySelector('[data-tab="monitor"]')?.click()
+    },
+    {
+      name: 'Security & Defender',
+      icon: '🛡️',
+      action: () => document.querySelector('[data-tab="security"]')?.click()
+    },
+    {
+      name: 'Phone Link (ADB)',
+      icon: '📱',
+      action: () => document.querySelector('[data-tab="phone"]')?.click()
+    },
+    {
+      name: 'App Library',
+      icon: '📦',
+      action: () => document.querySelector('[data-tab="apps"]')?.click()
+    },
+    {
+      name: 'Settings',
+      icon: '⚙️',
+      action: () => document.querySelector('[data-tab="settings"]')?.click()
+    },
+    {
+      name: 'Toggle Dark Mode',
+      icon: '🌗',
+      action: () => document.getElementById('theme-toggle')?.click()
+    },
+    {
+      name: 'Toggle Power',
+      icon: '⚡',
+      action: () => document.getElementById('power-btn')?.click()
+    }
+  ]
 
   function toggleCommandPalette(show) {
-    if (!cmdBackdrop) return;
+    if (!cmdBackdrop) return
     if (show) {
-      cmdBackdrop.classList.remove('hidden');
-      cmdBackdrop.classList.add('flex');
+      cmdBackdrop.classList.remove('hidden')
+      cmdBackdrop.classList.add('flex')
       // small delay to allow display:flex to apply before animating opacity/scale
       setTimeout(() => {
-        cmdPalette.classList.remove('scale-95', 'opacity-0');
-        cmdPalette.classList.add('scale-100', 'opacity-100');
-        cmdInput.focus();
-        cmdInput.value = '';
-        renderCmdResults('');
-      }, 10);
+        cmdPalette.classList.remove('scale-95', 'opacity-0')
+        cmdPalette.classList.add('scale-100', 'opacity-100')
+        cmdInput.focus()
+        cmdInput.value = ''
+        renderCmdResults('')
+      }, 10)
     } else {
-      cmdPalette.classList.remove('scale-100', 'opacity-100');
-      cmdPalette.classList.add('scale-95', 'opacity-0');
+      cmdPalette.classList.remove('scale-100', 'opacity-100')
+      cmdPalette.classList.add('scale-95', 'opacity-0')
       setTimeout(() => {
-        cmdBackdrop.classList.remove('flex');
-        cmdBackdrop.classList.add('hidden');
-      }, 200);
+        cmdBackdrop.classList.remove('flex')
+        cmdBackdrop.classList.add('hidden')
+      }, 200)
     }
   }
 
   function renderCmdResults(query) {
-    if (!cmdResults) return;
-    const lowerQuery = query.toLowerCase();
-    const filtered = commands.filter(c => c.name.toLowerCase().includes(lowerQuery));
-    
+    if (!cmdResults) return
+    const lowerQuery = query.toLowerCase()
+    const filtered = commands.filter((c) => c.name.toLowerCase().includes(lowerQuery))
+
     if (filtered.length === 0) {
-      cmdResults.innerHTML = '<div class="p-4 text-center opacity-50 text-sm">No commands found.</div>';
-      return;
+      cmdResults.innerHTML =
+        '<div class="p-4 text-center opacity-50 text-sm">No commands found.</div>'
+      return
     }
-    
-    cmdResults.innerHTML = filtered.map((c, i) => `
+
+    cmdResults.innerHTML = filtered
+      .map(
+        (c, i) => `
       <div class="cmd-item p-3 rounded-xl hover:bg-accent cursor-pointer flex items-center gap-3 transition-colors ${i === 0 ? 'bg-accent' : ''}" data-index="${i}">
         <span class="text-xl">${c.icon}</span>
         <span class="text-sm font-medium">${c.name}</span>
       </div>
-    `).join('');
-    
-    const items = cmdResults.querySelectorAll('.cmd-item');
-    items.forEach(item => {
+    `
+      )
+      .join('')
+
+    const items = cmdResults.querySelectorAll('.cmd-item')
+    items.forEach((item) => {
       item.addEventListener('click', () => {
-        const idx = parseInt(item.getAttribute('data-index'));
-        filtered[idx].action();
-        toggleCommandPalette(false);
-      });
+        const idx = parseInt(item.getAttribute('data-index'))
+        filtered[idx].action()
+        toggleCommandPalette(false)
+      })
       item.addEventListener('mouseenter', () => {
-        items.forEach(i => i.classList.remove('bg-accent'));
-        item.classList.add('bg-accent');
-      });
-    });
+        items.forEach((i) => i.classList.remove('bg-accent'))
+        item.classList.add('bg-accent')
+      })
+    })
   }
 
   if (cmdInput) {
-    cmdInput.addEventListener('input', (e) => renderCmdResults(e.target.value));
+    cmdInput.addEventListener('input', (e) => renderCmdResults(e.target.value))
     cmdInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        const active = cmdResults.querySelector('.cmd-item.bg-accent');
-        if (active) active.click();
+        const active = cmdResults.querySelector('.cmd-item.bg-accent')
+        if (active) active.click()
       } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        const items = Array.from(cmdResults.querySelectorAll('.cmd-item'));
-        if (!items.length) return;
-        const currentIdx = items.findIndex(i => i.classList.contains('bg-accent'));
-        items.forEach(i => i.classList.remove('bg-accent'));
-        let nextIdx = e.key === 'ArrowDown' ? currentIdx + 1 : currentIdx - 1;
-        if (nextIdx >= items.length) nextIdx = 0;
-        if (nextIdx < 0) nextIdx = items.length - 1;
-        items[nextIdx].classList.add('bg-accent');
-        items[nextIdx].scrollIntoView({ block: 'nearest' });
+        e.preventDefault()
+        const items = Array.from(cmdResults.querySelectorAll('.cmd-item'))
+        if (!items.length) return
+        const currentIdx = items.findIndex((i) => i.classList.contains('bg-accent'))
+        items.forEach((i) => i.classList.remove('bg-accent'))
+        let nextIdx = e.key === 'ArrowDown' ? currentIdx + 1 : currentIdx - 1
+        if (nextIdx >= items.length) nextIdx = 0
+        if (nextIdx < 0) nextIdx = items.length - 1
+        items[nextIdx].classList.add('bg-accent')
+        items[nextIdx].scrollIntoView({ block: 'nearest' })
       }
-    });
+    })
   }
 
   if (cmdBackdrop) {
     cmdBackdrop.addEventListener('click', (e) => {
-      if (e.target === cmdBackdrop) toggleCommandPalette(false);
-    });
+      if (e.target === cmdBackdrop) toggleCommandPalette(false)
+    })
   }
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      const isVisible = !cmdBackdrop.classList.contains('hidden');
-      toggleCommandPalette(!isVisible);
+      e.preventDefault()
+      const isVisible = !cmdBackdrop.classList.contains('hidden')
+      toggleCommandPalette(!isVisible)
     }
     if (e.key === 'Escape' && !cmdBackdrop.classList.contains('hidden')) {
-      toggleCommandPalette(false);
+      toggleCommandPalette(false)
     }
-  });
+  })
   // --- Auto Updater UI ---
   if (isElectron) {
-    const updaterUi = document.getElementById('updater-ui');
-    const updaterText = document.getElementById('updater-text');
-    const updaterProgress = document.getElementById('updater-progress');
+    const updaterUi = document.getElementById('updater-ui')
+    const updaterText = document.getElementById('updater-text')
+    const updaterProgress = document.getElementById('updater-progress')
 
     window.electron.ipcRenderer.on('updater-event', (_, payload) => {
-      if (!updaterUi) return;
-      updaterUi.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-20');
-      
+      if (!updaterUi) return
+      updaterUi.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-20')
+
       if (payload.type === 'available') {
-        updaterText.textContent = 'Downloading update...';
+        updaterText.textContent = 'Downloading update...'
       } else if (payload.type === 'not-available') {
-        updaterText.textContent = 'System is up to date';
-        setTimeout(() => updaterUi.classList.add('opacity-0', 'pointer-events-none', '-translate-y-20'), 3000);
+        updaterText.textContent = 'System is up to date'
+        setTimeout(
+          () => updaterUi.classList.add('opacity-0', 'pointer-events-none', '-translate-y-20'),
+          3000
+        )
       } else if (payload.type === 'progress') {
-        updaterText.textContent = `Downloading... ${Math.round(payload.progress)}%`;
-        if (updaterProgress) updaterProgress.style.width = `${payload.progress}%`;
+        updaterText.textContent = `Downloading... ${Math.round(payload.progress)}%`
+        if (updaterProgress) updaterProgress.style.width = `${payload.progress}%`
       } else if (payload.type === 'downloaded') {
-        updaterText.textContent = 'Update ready. Restarting...';
-        if (updaterProgress) updaterProgress.style.width = '100%';
-        setTimeout(() => window.electron.ipcRenderer.send('window-close'), 2000);
+        updaterText.textContent = 'Update ready. Restarting...'
+        if (updaterProgress) updaterProgress.style.width = '100%'
+        setTimeout(() => window.electron.ipcRenderer.send('window-close'), 2000)
       }
-    });
+    })
   }
 
   // --- System Monitor Charts ---
-  let cpuChart, ramChart;
-  
-  function initCharts() {
-    const cpuCtx = document.getElementById('cpu-chart')?.getContext('2d');
-    const ramCtx = document.getElementById('ram-chart')?.getContext('2d');
-    
-    if (!cpuCtx || !ramCtx || typeof Chart === 'undefined') return;
+  let cpuChart, ramChart
 
-    Chart.defaults.color = 'rgba(255, 255, 255, 0.5)';
-    Chart.defaults.font.family = 'Inter, sans-serif';
+  function initCharts() {
+    const cpuCtx = document.getElementById('cpu-chart')?.getContext('2d')
+    const ramCtx = document.getElementById('ram-chart')?.getContext('2d')
+
+    if (!cpuCtx || !ramCtx || typeof Chart === 'undefined') return
+
+    Chart.defaults.color = 'rgba(255, 255, 255, 0.5)'
+    Chart.defaults.font.family = 'Inter, sans-serif'
 
     const commonOptions = {
       responsive: true,
@@ -2117,78 +2333,81 @@
       },
       animation: { duration: 0 },
       elements: { point: { radius: 0 } }
-    };
+    }
 
     cpuChart = new Chart(cpuCtx, {
       type: 'line',
       data: {
         labels: Array(20).fill(''),
-        datasets: [{
-          data: Array(20).fill(0),
-          borderColor: '#3b82f6',
-          borderWidth: 2,
-          tension: 0.4,
-          fill: true,
-          backgroundColor: 'rgba(59, 130, 246, 0.1)'
-        }]
+        datasets: [
+          {
+            data: Array(20).fill(0),
+            borderColor: '#3b82f6',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            backgroundColor: 'rgba(59, 130, 246, 0.1)'
+          }
+        ]
       },
       options: commonOptions
-    });
+    })
 
     ramChart = new Chart(ramCtx, {
       type: 'line',
       data: {
         labels: Array(20).fill(''),
-        datasets: [{
-          data: Array(20).fill(0),
-          borderColor: '#f43f5e',
-          borderWidth: 2,
-          tension: 0.4,
-          fill: true,
-          backgroundColor: 'rgba(244, 63, 94, 0.1)'
-        }]
+        datasets: [
+          {
+            data: Array(20).fill(0),
+            borderColor: '#f43f5e',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            backgroundColor: 'rgba(244, 63, 94, 0.1)'
+          }
+        ]
       },
       options: commonOptions
-    });
+    })
   }
 
   async function updateSystemStats() {
-    if (!isElectron) return;
+    if (!isElectron) return
     try {
-      const stats = await ipc.invoke('get-system-stats');
-      if (!stats) return;
+      const stats = await ipc.invoke('get-system-stats')
+      if (!stats) return
 
-      const cpuVal = parseFloat(stats.cpu);
-      const ramVal = parseFloat(stats.memory.usedPercentage);
+      const cpuVal = parseFloat(stats.cpu)
+      const ramVal = parseFloat(stats.memory.usedPercentage)
 
-      const cpuValueEl = document.getElementById('cpu-value');
-      const ramValueEl = document.getElementById('ram-value');
-      const ramUsedEl = document.getElementById('ram-used');
+      const cpuValueEl = document.getElementById('cpu-value')
+      const ramValueEl = document.getElementById('ram-value')
+      const ramUsedEl = document.getElementById('ram-used')
 
-      if (cpuValueEl) cpuValueEl.textContent = `${Math.round(cpuVal)}%`;
-      if (ramValueEl) ramValueEl.textContent = `${Math.round(ramVal)}%`;
-      if (ramUsedEl) ramUsedEl.textContent = `${stats.memory.total} / ${stats.memory.free} FREE`;
+      if (cpuValueEl) cpuValueEl.textContent = `${Math.round(cpuVal)}%`
+      if (ramValueEl) ramValueEl.textContent = `${Math.round(ramVal)}%`
+      if (ramUsedEl) ramUsedEl.textContent = `${stats.memory.total} / ${stats.memory.free} FREE`
 
       if (cpuChart) {
-        cpuChart.data.datasets[0].data.shift();
-        cpuChart.data.datasets[0].data.push(cpuVal);
-        cpuChart.update();
+        cpuChart.data.datasets[0].data.shift()
+        cpuChart.data.datasets[0].data.push(cpuVal)
+        cpuChart.update()
       }
-      
+
       if (ramChart) {
-        ramChart.data.datasets[0].data.shift();
-        ramChart.data.datasets[0].data.push(ramVal);
-        ramChart.update();
+        ramChart.data.datasets[0].data.shift()
+        ramChart.data.datasets[0].data.push(ramVal)
+        ramChart.update()
       }
     } catch (e) {
-      console.error('Failed to update system stats:', e);
+      console.error('Failed to update system stats:', e)
     }
   }
 
   setTimeout(() => {
-    initCharts();
-    setInterval(updateSystemStats, 2000);
-    updateSystemStats();
-  }, 1000);
-
+    initCharts()
+    setInterval(updateSystemStats, 2000)
+    updateSystemStats()
+  }, 1000)
 })()

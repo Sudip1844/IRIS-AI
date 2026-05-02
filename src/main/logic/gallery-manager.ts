@@ -117,7 +117,8 @@ export default function registerGalleryHandlers(ipcMain: IpcMain) {
           return {
             name: file,
             thumbnail: fileUrl,
-            size: `${(stats.size / 1024).toFixed(1)}KB`
+            size: `${(stats.size / 1024).toFixed(1)}KB`,
+            createdAt: stats.ctime
           }
         })
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

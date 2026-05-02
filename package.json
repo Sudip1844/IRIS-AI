@@ -20,6 +20,7 @@
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@google-cloud/local-auth": "^3.0.1",
@@ -51,6 +52,7 @@
     "loudness": "^0.4.2",
     "lucide-react": "^0.575.0",
     "mammoth": "^1.11.0",
+    "openai": "^6.35.0",
     "pdf-parse": "^2.4.5",
     "prismjs": "^1.30.0",
     "puppeteer": "^24.37.3",

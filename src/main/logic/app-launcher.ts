@@ -173,3 +173,16 @@ function launchViaPowerShell(appName: string, resolve: any) {
     }
   })
 }
+
+export function startApp(appName: string): Promise<any> {
+  return new Promise((resolve) => {
+    const lowerName = appName.toLowerCase().trim()
+    let command = APP_ALIASES[lowerName]
+
+    if (command) {
+      executeCommand(command, appName, resolve)
+    } else {
+      launchViaPowerShell(appName, resolve)
+    }
+  })
+}
