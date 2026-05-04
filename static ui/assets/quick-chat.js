@@ -1,10 +1,8 @@
 // ===== MJ Quick Chat – Electron Bridge =====
-(function () {
+;(function () {
   'use strict'
 
-  const ipc = (window.electron && window.electron.ipcRenderer)
-    ? window.electron.ipcRenderer
-    : null
+  const ipc = window.electron && window.electron.ipcRenderer ? window.electron.ipcRenderer : null
 
   const isElectron = !!ipc
 
@@ -56,7 +54,10 @@
     sendBtn.disabled = true
 
     // Show typing indicator
-    const typingEl = appendMessage('ai', '<div class="typing-dots"><span></span><span></span><span></span></div>')
+    const typingEl = appendMessage(
+      'ai',
+      '<div class="typing-dots"><span></span><span></span><span></span></div>'
+    )
 
     chatHistory.push({ role: 'user', content: text })
 
@@ -64,10 +65,16 @@
     if (isElectron) {
       try {
         const response = await ipc.invoke('chat-with-ai', text)
-        typingEl.innerHTML = formatResponse(response || 'Sorry, I could not process that.')
-        chatHistory.push({ role: 'assistant', content: response })
+        const reply = response || 'Sorry, I could not process that.'
+        const isError =
+          typeof reply === 'string' && /(^ERROR:|\bError:|\bFailed\b|\bfailed\b)/.test(reply)
+        typingEl.innerHTML = isError
+          ? `<span style="color:#b91c1c;font-weight:600;line-height:1.5">${escapeHtml(reply)}</span>`
+          : formatResponse(reply)
+        chatHistory.push({ role: 'assistant', content: reply })
       } catch (err) {
-        typingEl.innerHTML = '<em style="opacity:0.6">Failed to reach MJ backend. Is the core active?</em>'
+        typingEl.innerHTML =
+          '<em style="opacity:0.6">Failed to reach MJ backend. Is the core active?</em>'
       }
     } else {
       // Demo mode
@@ -100,8 +107,20 @@
     return text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code style="background:rgba(100,180,255,0.1);padding:1px 4px;border-radius:3px;font-size:12px">$1</code>')
+      .replace(
+        /`(.*?)`/g,
+        '<code style="background:rgba(100,180,255,0.1);padding:1px 4px;border-radius:3px;font-size:12px">$1</code>'
+      )
       .replace(/\n/g, '<br>')
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
   }
 
   // Focus input on load

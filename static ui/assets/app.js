@@ -186,7 +186,7 @@
       coreStatus.textContent = '● Core Active'
       coreStatus.className =
         'text-[8px] md:text-sm font-bold uppercase tracking-widest truncate text-emerald-500'
-      voiceStatus.textContent = 'Voice: Listening...'
+      voiceStatus.textContent = 'Voice: Standby'
 
       processCore.classList.add('process-active')
       processBrain.classList.add('process-active')
@@ -209,6 +209,10 @@
       if (processSpinner) processSpinner.classList.remove('animate-spin')
 
       stopStatsUpdates()
+      // Stop mic if running when power goes off
+      if (isMicActive) {
+        toggleMicrophone()
+      }
     }
   })
 
@@ -358,16 +362,24 @@
       return
     }
 
+    function isChatError(message) {
+      return typeof message === 'string' && /(^ERROR:|\bError:|\bFailed\b|\bfailed\b)/.test(message)
+    }
+
     if (isElectron) {
       try {
         const result = await ipc.invoke('chat-with-ai', text)
         replyText = result || 'No response.'
         thinkingEl.remove()
-        appendMessage('mj', replyText)
-        speakAndAnimate(replyText)
+        if (isChatError(replyText)) {
+          appendMessage('error', replyText)
+        } else {
+          appendMessage('mj', replyText)
+          speakAndAnimate(replyText)
+        }
       } catch (err) {
         thinkingEl.remove()
-        replyText = 'Backend error: ' + err.message
+        replyText = 'Backend error: ' + (err?.message || String(err))
         appendMessage('error', replyText)
       }
     } else {
@@ -434,7 +446,265 @@
   // Initial load
   renderChatHistory()
 
-  let visualizerInterval = null
+  let currentVisualizerType = 'pulse'
+
+  // --- Audio Engine for Visualizer ---
+  let audioCtx = null;
+  let analyser = null;
+  let microphone = null;
+  let dataArray = null;
+  let isMicActive = false;
+  let visualizerRafId = null;
+  const micBtn = document.getElementById('mic-btn');
+  let speechRecognition = null;
+
+  async function initAudioEngine() {
+    if (audioCtx) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (!microphone) {
+         try {
+           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+           microphone = audioCtx.createMediaStreamSource(stream);
+           microphone.connect(analyser);
+         } catch(e) {}
+      }
+      return;
+    }
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const bufferLength = analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      microphone = audioCtx.createMediaStreamSource(stream);
+      microphone.connect(analyser);
+      startVisualizerLoop();
+    } catch (err) {
+      console.warn('Audio engine init failed (Mic access denied?):', err);
+      startVisualizerLoop(); // Still start loop for TTS fallback
+    }
+  }
+
+  function toggleMicrophone() {
+    if (!isPowerOn) {
+      if (typeof showToast !== 'undefined') showToast('Please start MJ first.', 'warning');
+      return;
+    }
+
+    if (!isMicActive) {
+      // Turn ON
+      isMicActive = true;
+      initAudioEngine();
+      if (micBtn) {
+        micBtn.classList.remove('bg-card', 'text-muted-foreground', 'bg-emerald-500', 'hover:bg-accent');
+        micBtn.classList.add('bg-rose-500', 'text-white', 'shadow-lg', 'shadow-rose-500/20');
+        const offIcon = document.getElementById('mic-icon-off');
+        const onIcon = document.getElementById('mic-icon-on');
+        const pulse = document.getElementById('mic-pulse');
+        if (offIcon) offIcon.style.display = 'none';
+        if (onIcon) onIcon.style.display = 'block';
+        if (pulse) pulse.style.display = 'block';
+      }
+      
+      if (chatInput) {
+        chatInput.disabled = true;
+        chatInput.placeholder = 'Listening for voice...';
+        chatInput.classList.add('opacity-50');
+      }
+
+      if (!speechRecognition) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          speechRecognition = new SpeechRecognition();
+          speechRecognition.continuous = true;
+          speechRecognition.interimResults = true;
+          // default language or user's OS locale is used
+          speechRecognition.onresult = (event) => {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+              }
+            }
+            if (finalTranscript.trim() !== '') {
+              if (chatInput) chatInput.value = finalTranscript;
+              if (sendBtn && !sendBtn.disabled) {
+                sendBtn.click();
+              } else if (sendBtn && sendBtn.disabled) {
+                 sendBtn.disabled = false;
+                 sendBtn.click();
+              }
+            }
+          };
+          speechRecognition.onend = () => {
+             if (isMicActive) speechRecognition.start();
+          };
+        }
+      }
+      
+      if (speechRecognition) {
+        try { speechRecognition.start(); } catch(e){}
+      }
+    } else {
+      // Turn OFF
+      isMicActive = false;
+      if (microphone) {
+        microphone.disconnect();
+        microphone = null;
+      }
+      
+      if (micBtn) {
+        micBtn.classList.remove('bg-rose-500', 'text-white', 'shadow-lg', 'shadow-rose-500/20');
+        micBtn.classList.add('bg-emerald-500', 'text-white');
+        const offIcon = document.getElementById('mic-icon-off');
+        const onIcon = document.getElementById('mic-icon-on');
+        const pulse = document.getElementById('mic-pulse');
+        if (offIcon) offIcon.style.display = 'block';
+        if (onIcon) onIcon.style.display = 'none';
+        if (pulse) pulse.style.display = 'none';
+      }
+      
+      if (chatInput) {
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Type a message... (Ctrl+Enter to send)';
+        chatInput.classList.remove('opacity-50');
+        chatInput.focus();
+      }
+
+      if (speechRecognition) {
+        speechRecognition.stop();
+      }
+    }
+  }
+
+  if (micBtn) {
+    micBtn.addEventListener('click', toggleMicrophone);
+  }
+
+
+  function startVisualizerLoop() {
+    if (visualizerRafId) cancelAnimationFrame(visualizerRafId);
+    
+    function loop() {
+      visualizerRafId = requestAnimationFrame(loop);
+      const vizPreview = document.getElementById('viz-preview');
+      const root = vizPreview?.firstElementChild;
+      
+      if (!root || !isPowerOn) {
+        if (root) resetVisualizerStyles(root);
+        return;
+      }
+
+      let avgFreq = 0;
+      if (isMicActive && analyser && dataArray) {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        avgFreq = sum / dataArray.length;
+      }
+      
+      if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        avgFreq = Math.max(avgFreq, 40 + Math.random() * 80);
+      }
+
+      animateVisualizerWithAudio(root, avgFreq);
+    }
+    loop();
+  }
+
+  function setVisualizerTemplate(type) {
+    const vizPreview = document.getElementById('viz-preview')
+    if (!vizPreview || !vizTemplates[type]) return
+
+    currentVisualizerType = type
+    vizPreview.innerHTML = vizTemplates[type]
+  }
+
+  function resetVisualizerStyles(root) {
+    if (!root) return
+    root.querySelectorAll('[style]').forEach((node) => node.removeAttribute('style'))
+  }
+
+  function animateVisualizerWithAudio(root, avgFreq) {
+    if (!root) return
+
+    // avgFreq is between 0 and 255. Normalize to 0-1 for scaling.
+    const volume = avgFreq / 255;
+
+    switch (currentVisualizerType) {
+      case 'pulse': {
+        const vizNode = root.querySelector('.absolute')
+        const innerNode = root.querySelector('.w-6')
+        if (vizNode && innerNode) {
+          const scaleOut = 0.95 + (volume * 0.5);
+          const scaleIn = 0.9 + (volume * 0.3);
+          vizNode.style.transform = `scale(${scaleOut})`
+          innerNode.style.transform = `scale(${scaleIn})`
+          vizNode.style.transition = 'transform 0.05s linear'
+          innerNode.style.transition = 'transform 0.05s linear'
+        }
+        break
+      }
+      case 'wave':
+      case 'bars': {
+        const bars = root.querySelectorAll('.bar');
+        bars.forEach((bar, index) => {
+          if (bar instanceof HTMLElement) {
+            const height = 10 + (volume * (60 + index * 10)) + (Math.random() * 5 * volume);
+            bar.style.height = `${height}px`
+            bar.style.transition = 'height 0.05s linear'
+          }
+        })
+        break
+      }
+      case 'liquid': {
+        if (root instanceof HTMLElement) {
+          root.style.transform = `translateY(${Math.sin(Date.now() / 150) * (5 + volume * 10)}px)`
+          root.style.boxShadow = `0 0 ${6 + volume * 20}px rgba(56, 189, 248, ${0.3 + volume * 0.5})`
+        }
+        break
+      }
+      case 'aura': {
+        const glow = root.querySelector('.glow')
+        const dot = root.querySelector('.dot')
+        if (glow instanceof HTMLElement) {
+          glow.style.boxShadow = `0 0 ${10 + volume * 30}px rgba(59, 130, 246, ${0.4 + volume * 0.5})`
+        }
+        if (dot instanceof HTMLElement) {
+          dot.style.transform = `scale(${0.8 + volume * 0.4})`
+        }
+        break
+      }
+      case 'orbit': {
+        root.querySelectorAll('.ring').forEach((ring, index) => {
+          if (ring instanceof HTMLElement) {
+            ring.style.transform = `rotate(${Date.now() / (30 - volume * 15) + index * 45}deg)`
+          }
+        })
+        break
+      }
+      case 'vortex': {
+        root.querySelectorAll('.ring').forEach((ring, index) => {
+          if (ring instanceof HTMLElement) {
+            ring.style.transform = `scale(${1 + volume * 0.2 + Math.sin(Date.now() / 150 + index) * 0.05})`
+          }
+        })
+        break
+      }
+      case 'cyber': {
+        const path = root.querySelector('.line')
+        if (path instanceof HTMLElement) {
+          path.style.strokeDashoffset = `${volume * 40}`
+        }
+        break
+      }
+      default:
+        break
+    }
+  }
+
   function speakAndAnimate(text) {
     if (!window.speechSynthesis) return
 
@@ -455,41 +725,6 @@
           v.name.includes('Google UK English Female')
       ) || voices[0]
     if (mjVoice) utterance.voice = mjVoice
-
-    utterance.onstart = () => {
-      const vizNode = document.querySelector('.viz-pulse .absolute')
-      const innerNode = document.querySelector('.viz-pulse .w-6')
-      if (!vizNode || !innerNode) return
-
-      // Start random scaling to simulate audio waveform
-      clearInterval(visualizerInterval)
-      visualizerInterval = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          clearInterval(visualizerInterval)
-          vizNode.style.transform = 'scale(1)'
-          innerNode.style.transform = 'scale(1)'
-          return
-        }
-        const scale1 = 1 + Math.random() * 0.8
-        const scale2 = 1 + Math.random() * 0.4
-        vizNode.style.transform = `scale(${scale1})`
-        vizNode.style.transition = 'transform 0.1s ease'
-        innerNode.style.transform = `scale(${scale2})`
-        innerNode.style.transition = 'transform 0.1s ease'
-      }, 100)
-    }
-
-    utterance.onend = () => {
-      clearInterval(visualizerInterval)
-      const vizNode = document.querySelector('.viz-pulse .absolute')
-      const innerNode = document.querySelector('.viz-pulse .w-6')
-      if (vizNode && innerNode) {
-        vizNode.style.transform = 'scale(1)'
-        innerNode.style.transform = 'scale(1)'
-      }
-    }
-
-    utterance.onerror = utterance.onend
 
     window.speechSynthesis.cancel() // Stop current speech
     window.speechSynthesis.speak(utterance)
@@ -531,7 +766,7 @@
       '</div>' +
       '<div class="max-w-[90%] md:max-w-[85%] rounded-2xl p-3 md:p-4 text-xs md:text-sm leading-relaxed shadow-sm ' +
       bubbleClass +
-      '">' +
+      '" style="user-select: text; -webkit-user-select: text;">' +
       '<div class="prose prose-sm max-w-none">' +
       parsedContent +
       '</div></div>'
@@ -689,11 +924,12 @@
       btn.classList.remove('bg-card', 'border-border')
 
       const type = btn.dataset.viz
-      if (vizPreview && vizTemplates[type]) {
-        vizPreview.innerHTML = vizTemplates[type]
-      }
+      setVisualizerTemplate(type)
     })
   })
+
+  // Initialize the visualizer preview with the default type
+  setVisualizerTemplate(currentVisualizerType)
   // --- Sub Agent Input (routed through chat-with-ai) ---
   const addAgentBtn = document.getElementById('add-agent-btn')
   const agentSelectEl = document.getElementById('agent-select')
@@ -727,7 +963,7 @@
         { key: 'tavily', name: 'Tavily Search', icon: '🔍' }
       ]
 
-      availableProviders.forEach(provider => {
+      availableProviders.forEach((provider) => {
         if (providerConfig[provider.key]?.apiKey) {
           const opt = document.createElement('option')
           opt.value = provider.key
@@ -801,8 +1037,11 @@
           provider: selectedProvider
         })
 
+        const isError =
+          typeof reply === 'string' && /(^ERROR:|\bError:|\bFailed\b|\bfailed\b)/.test(reply)
+        const content = escapeHtml(reply || 'No response')
         if (subagentMessages) {
-          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl bg-card border border-border text-sm"><span class="text-[10px] font-bold text-primary uppercase block mb-1">${escapeHtml(selectedAgentName)}</span>${escapeHtml(reply || 'No response')}</div></div>`
+          subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl ${isError ? 'bg-rose-500/10 border border-rose-500/20 text-rose-600' : 'bg-card border border-border'} text-sm"><span class="text-[10px] font-bold ${isError ? 'text-rose-600' : 'text-primary'} uppercase block mb-1">${escapeHtml(isError ? 'Error' : selectedAgentName)}</span>${content}</div></div>`
           subagentMessages.scrollTop = subagentMessages.scrollHeight
         }
       } catch (err) {
@@ -2048,7 +2287,19 @@
   }
 
   // Make API key inputs editable on click
-  [geminiKey, groqKey, openaiKey, anthropicKey, deepseekKey, mistralKey, openrouterKey, xaiKey, nvidiaKey, hfKey, tavilyKey].forEach(input => {
+  ;[
+    geminiKey,
+    groqKey,
+    openaiKey,
+    anthropicKey,
+    deepseekKey,
+    mistralKey,
+    openrouterKey,
+    xaiKey,
+    nvidiaKey,
+    hfKey,
+    tavilyKey
+  ].forEach((input) => {
     if (input) {
       input.addEventListener('click', () => {
         if (input.hasAttribute('readonly')) {
@@ -2061,6 +2312,8 @@
       })
     }
   })
+
+  if (saveKeysBtn) {
     saveKeysBtn.addEventListener('click', async () => {
       const config = {
         gemini: { apiKey: geminiKey.value.trim() },
