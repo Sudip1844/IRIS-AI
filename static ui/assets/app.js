@@ -764,12 +764,28 @@
       '<div class="flex items-center gap-2 px-2">' +
       headerHTML +
       '</div>' +
-      '<div class="max-w-[90%] md:max-w-[85%] rounded-2xl p-3 md:p-4 text-xs md:text-sm leading-relaxed shadow-sm ' +
+      '<div class="relative group max-w-[90%] md:max-w-[85%] rounded-2xl p-3 md:p-4 text-xs md:text-sm leading-relaxed shadow-sm ' +
       bubbleClass +
       '" style="user-select: text; -webkit-user-select: text;">' +
       '<div class="prose prose-sm max-w-none">' +
       parsedContent +
-      '</div></div>'
+      '</div>' +
+      '<button class="copy-btn absolute top-2 right-2 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" title="Copy Message">' +
+      '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>' +
+      '</button>' +
+      '</div>'
+
+    const copyBtn = wrapper.querySelector('.copy-btn')
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(text).then(() => {
+          copyBtn.innerHTML = '<svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+          setTimeout(() => {
+            copyBtn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>'
+          }, 2000)
+        }).catch(err => console.error('Copy failed:', err))
+      })
+    }
 
     chatMessages.appendChild(wrapper)
     chatMessages.scrollTop = chatMessages.scrollHeight

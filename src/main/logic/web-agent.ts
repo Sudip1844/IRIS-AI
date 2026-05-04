@@ -1,9 +1,14 @@
-import { IpcMain, shell } from 'electron'
-import puppeteer from 'puppeteer-extra'
-import StealthPlugin from 'puppeteer-extra-plugin-stealth'
-import { load } from 'cheerio'
+/**
+ * Web Agent — Upgraded to use BrowserEngine singleton
+ *
+ * Replaces one-shot Puppeteer launches with persistent browser control.
+ * Now supports: navigate, click, fill, snapshot, text extraction,
+ * screenshot, multi-tab, and profile management.
+ */
 
-puppeteer.use(StealthPlugin())
+import { IpcMain, shell } from 'electron'
+import BrowserEngine from './browser-engine'
+import * as BrowserProfiles from './browser-profiles'
 
 const USER_BOOKMARKS: Record<string, string> = {
   instagram: 'https://instagram.com',
@@ -54,7 +59,6 @@ const getSmartUrl = (
 
   if (lower.startsWith('open ') || lower.startsWith('go to ')) {
     const term = lower.replace(/^(open|go to)( the)?\s+/, '').trim()
-
     if (!term.includes('who') && !term.includes('what') && !term.includes('how')) {
       return {
         url: `https://duckduckgo.com/?q=!ducky+${encodeURIComponent(term)}`,
@@ -68,73 +72,160 @@ const getSmartUrl = (
 }
 
 export default function registerWebAgent(ipcMain: IpcMain) {
-  ipcMain.handle('google-search', async (_event, query: string) => {
-    let browser: any = null
+  const engine = BrowserEngine.getInstance()
 
+  // ─── Legacy handler (kept for backward compat) ───
+  ipcMain.handle('google-search', async (_event, query: string) => {
     try {
       const smartRoute = getSmartUrl(query)
       const finalUrl = smartRoute
         ? smartRoute.url
         : `https://www.google.com/search?q=${encodeURIComponent(query)}`
 
+      // Always open in system browser for the user to see
       shell.openExternal(finalUrl)
 
       if (smartRoute && smartRoute.skipScrape) {
         return `I've opened ${smartRoute.source} for you.`
       }
 
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-      })
+      // Use BrowserEngine for scraping instead of spawning new Chromium
+      try {
+        await engine.init({ headless: true })
+        await engine.navigate(finalUrl)
+        const text = await engine.extractText()
 
-      const page = await browser.newPage()
-      await page.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      )
-
-      const scrapeUrl = smartRoute
-        ? finalUrl
-        : `https://duckduckgo.com/?q=${encodeURIComponent(query)}&ia=web`
-
-      await page.goto(scrapeUrl, { waitUntil: 'networkidle2', timeout: 15000 })
-
-      const html = await page.content()
-      const $ = load(html)
-      let summary = ''
-
-      if (smartRoute?.source === 'GitHub') {
-        const name = $('.p-name').text().trim()
-        const bio = $('.p-note').text().trim()
-        summary = `GitHub Profile: ${name}\nBio: ${bio}`
-      } else {
-        const paragraphs = $('p')
-          .map((_, el) => $(el).text().trim())
-          .get()
-          .filter((t) => t.length > 50)
-          .slice(0, 3)
-
-        summary = paragraphs.join('\n\n')
-
-        if (!summary) {
-          const snippets = $('.result__snippet')
-            .map((_, el) => $(el).text().trim())
-            .get()
-            .slice(0, 3)
-          summary = snippets.join('\n\n')
+        if (text && text.length > 50) {
+          return `I've opened the link. Here is a quick summary:\n${text.substring(0, 500)}...`
         }
+      } catch (e) {
+        console.log('[WebAgent] BrowserEngine scrape failed, but system browser opened:', e)
       }
 
-      await browser.close()
-
-      if (!summary || summary.length < 20) {
-        return "I've opened the website for you."
-      }
-
-      return `I've opened the link. Here is a quick summary:\n${summary.substring(0, 500)}...`
+      return "I've opened the website for you."
     } catch (error: any) {
-      if (browser) await browser.close()
       return "I opened the browser, but couldn't read the content."
     }
+  })
+
+  // ─── New BrowserEngine IPC handlers ───
+
+  ipcMain.handle(
+    'browser-init',
+    async (_, options?: { headless?: boolean; profileName?: string }) => {
+      try {
+        await engine.init(options)
+        return { success: true, running: engine.isRunning() }
+      } catch (e: any) {
+        return { success: false, error: e.message }
+      }
+    }
+  )
+
+  ipcMain.handle('browser-navigate', async (_, { url, newTab }: { url: string; newTab?: boolean }) => {
+    try {
+      await engine.init({ headless: true })
+      const result = await engine.navigate(url, { newTab })
+      return { success: true, ...result }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-snapshot', async (_, options?: { filter?: 'interactive' | 'all' }) => {
+    try {
+      const snapshot = await engine.snapshot(options)
+      return { success: true, ...snapshot }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-click', async (_, ref: string) => {
+    try {
+      return await engine.click(ref)
+    } catch (e: any) {
+      return { success: false, message: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-fill', async (_, { ref, value }: { ref: string; value: string }) => {
+    try {
+      return await engine.fill(ref, value)
+    } catch (e: any) {
+      return { success: false, message: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-press', async (_, { ref, key }: { ref: string | null; key: string }) => {
+    try {
+      return await engine.press(ref, key)
+    } catch (e: any) {
+      return { success: false, message: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-text', async () => {
+    try {
+      const text = await engine.extractText()
+      return { success: true, text }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-screenshot', async (_, options?: { fullPage?: boolean }) => {
+    try {
+      const base64 = await engine.screenshot(options)
+      return { success: true, image: base64 }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-tabs', async () => {
+    try {
+      const tabs = await engine.listTabs()
+      return { success: true, tabs }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('browser-switch-tab', async (_, tabId: string) => {
+    return { success: await engine.switchTab(tabId) }
+  })
+
+  ipcMain.handle('browser-close-tab', async (_, tabId: string) => {
+    return { success: await engine.closeTab(tabId) }
+  })
+
+  ipcMain.handle('browser-close', async () => {
+    await engine.close()
+    return { success: true }
+  })
+
+  ipcMain.handle('browser-status', async () => {
+    return {
+      running: engine.isRunning(),
+      tabs: engine.isRunning() ? await engine.listTabs() : []
+    }
+  })
+
+  // ─── Profile Management ───
+
+  ipcMain.handle(
+    'browser-profile-create',
+    async (_, { name, description }: { name: string; description?: string }) => {
+      return BrowserProfiles.createProfile(name, description)
+    }
+  )
+
+  ipcMain.handle('browser-profile-list', async () => {
+    return BrowserProfiles.listProfiles()
+  })
+
+  ipcMain.handle('browser-profile-delete', async (_, nameOrId: string) => {
+    return { success: BrowserProfiles.deleteProfile(nameOrId) }
   })
 }

@@ -52,6 +52,7 @@ import registerDeepResearch from './services/deep-research'
 import registerWidgetMaker from './auto/widget-manager'
 import registerWebsiteBuilder from './auto/website-builder'
 import registerWorkflowManager from './workflow/workflow-manager'
+import registerAgentOrchestrator from './agents/agent-orchestrator'
 import registerDropZoneControl from './handlers/SmartDropZone-Handler'
 import registerScreenPeeler from './handlers/ScreenPeeler-handler'
 import registerPhantomKeyboard from './handlers/PhantomControl-handler'
@@ -342,6 +343,7 @@ app.whenReady().then(() => {
   registerScreenPeeler()
   registerDropZoneControl(ipcMain)
   registerWorkflowManager()
+  registerAgentOrchestrator()
   registerWebsiteBuilder()
   registerWidgetMaker()
   registerDeepResearch({ ipcMain })
@@ -374,7 +376,7 @@ app.whenReady().then(() => {
   registerPrivacyHandlers(ipcMain)
   registerAppsHandlers(ipcMain)
   registerIpcHandlers({ ipcMain, app })
-  registerChatHandler()
+  // registerChatHandler() — already called on line 232
   registerSpotifyManager()
 
   ipcMain.handle('get-screen-source', async () => {
