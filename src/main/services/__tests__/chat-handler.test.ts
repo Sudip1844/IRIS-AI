@@ -172,7 +172,7 @@ describe('chat-handler', () => {
     })
 
     it('should return undefined if no endpoint stored', () => {
-      const endpoint: string | undefined = undefined
+      const endpoint: string | undefined = undefined as string | undefined
       const result = endpoint?.trim() || undefined
 
       expect(result).toBeUndefined()

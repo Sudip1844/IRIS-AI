@@ -46,7 +46,7 @@ function getSecureVaultPath() {
   return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0]
 }
 
-export default function registerChatHandler() {
+
   const secureConfigPath = getSecureVaultPath()
 
   function isProviderEnabled(config?: ProviderConfig): boolean {
@@ -110,7 +110,7 @@ export default function registerChatHandler() {
   }
 
   // Core logic extracted for internal use
-  export async function handleChatRequest(options: ChatRequestOptions): Promise<string> {
+export async function handleChatRequest(options: ChatRequestOptions): Promise<string> {
     const { text, provider, model } = parseChatRequest(options)
     const providerStore = loadProviderConfig()
     let keys = loadKeysFromProviderStore(providerStore)
@@ -218,7 +218,7 @@ export default function registerChatHandler() {
             model: 'gemini-2.5-flash',
             contents: `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`
           })
-          return response.text
+          return response.text || ''
         } catch (err: any) {
           const message = providerError('Gemini', err)
           console.log('[MJ] Gemini failed, trying fallback:', message)
@@ -284,6 +284,7 @@ export default function registerChatHandler() {
     return 'ERROR: No AI Model configured. Please save API keys in Settings (Gemini, OpenAI, Anthropic, or Groq).'
   }
 
+export default function registerChatHandler() {
   // Enhanced IPC handler supporting multiple providers
   ipcMain.handle('chat-with-ai', async (_, options: ChatRequestOptions) => {
     return handleChatRequest(options)
@@ -377,3 +378,4 @@ export default function registerChatHandler() {
     event.sender.send('chat-stream-end', 'Stream completed')
   })
 }
+
