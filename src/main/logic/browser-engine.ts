@@ -230,7 +230,7 @@ class BrowserEngine {
       }
 
       // Wait for navigation or DOM changes
-      await page.waitForTimeout(800)
+      await new Promise((r) => setTimeout(r, 800))
 
       return { success: true, message: `Clicked ${ref}` }
     } catch (err: any) {
@@ -293,7 +293,7 @@ class BrowserEngine {
       }
 
       await page.keyboard.press(key as any)
-      await page.waitForTimeout(500)
+      await new Promise((r) => setTimeout(r, 500))
 
       return { success: true, message: `Pressed ${key}${ref ? ` on ${ref}` : ''}` }
     } catch (err: any) {

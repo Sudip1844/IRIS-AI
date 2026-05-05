@@ -218,7 +218,81 @@ export function getMemoryStats(appRef: App): {
 // ─── IPC Registration ───
 
 export default function registerUnifiedMemory({ ipcMain, app: appRef }: { ipcMain: IpcMain; app: App }) {
-  // Legacy compatibility — keep old handlers working
+  // ─── Chat History (merged from mj-memory-save.ts) ───
+  const CHAT_DIR = path.resolve(appRef.getPath('userData'), 'Chat')
+  const CHAT_FILE = path.join(CHAT_DIR, 'mj_memory.json')
+
+  ipcMain.handle('add-message', async (_event, msg) => {
+    try {
+      if (!fs.existsSync(CHAT_DIR)) fs.mkdirSync(CHAT_DIR, { recursive: true })
+
+      let history: { role: string; content: string; timestamp: string }[] = []
+      if (fs.existsSync(CHAT_FILE)) {
+        const data = fs.readFileSync(CHAT_FILE, 'utf-8')
+        history = data ? JSON.parse(data) : []
+      }
+
+      history.push({
+        role: msg.role,
+        content: msg.parts[0].text,
+        timestamp: new Date().toISOString()
+      })
+
+      if (history.length > 20) history = history.slice(-20)
+
+      fs.writeFileSync(CHAT_FILE, JSON.stringify(history, null, 2))
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  ipcMain.handle('get-history', async () => {
+    try {
+      if (fs.existsSync(CHAT_FILE)) {
+        const data = fs.readFileSync(CHAT_FILE, 'utf-8')
+        const raw = JSON.parse(data)
+        return raw.map((m: any) => ({
+          role: m.role === 'mj' ? 'model' : m.role,
+          parts: [{ text: m.content }]
+        }))
+      }
+    } catch {}
+    return []
+  })
+
+  // ─── Settings stubs (merged from mj-memory-save.ts) ───
+  ipcMain.handle('settings-save-keys', async (_event, config) => {
+    try {
+      console.log('Saving API keys:', Object.keys(config))
+      return true
+    } catch (error) {
+      console.error('Save keys failed:', error)
+      return false
+    }
+  })
+
+  ipcMain.handle('settings-save', async (_event, settings) => {
+    try {
+      console.log('Saving settings:', Object.keys(settings))
+      return true
+    } catch (error) {
+      console.error('Save settings failed:', error)
+      return false
+    }
+  })
+
+  ipcMain.handle('settings-reset', async () => {
+    try {
+      console.log('Resetting settings to defaults')
+      return true
+    } catch (error) {
+      console.error('Reset settings failed:', error)
+      return false
+    }
+  })
+
+  // ─── Knowledge Memory — Legacy compatibility ───
   ipcMain.handle('save-core-memory', async (_event, fact: string) => {
     try {
       saveToMemory(appRef, 'global', fact, 'user')

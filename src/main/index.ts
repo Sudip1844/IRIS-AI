@@ -19,7 +19,7 @@ import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-import registerIpcHandlers from './logic/mj-memory-save'
+// mj-memory-save.ts removed — handlers merged into permanent-memory.ts
 import registerSystemHandlers from './logic/get-system-info'
 import registerFileSearch from './logic/file-search'
 import registerFileOps from './logic/file-ops'
@@ -53,6 +53,11 @@ import registerWidgetMaker from './auto/widget-manager'
 import registerWebsiteBuilder from './auto/website-builder'
 import registerWorkflowManager from './workflow/workflow-manager'
 import registerAgentOrchestrator from './agents/agent-orchestrator'
+import registerSkillLibrary from './agents/skill-library'
+import registerVisionEngine from './agents/vision-engine'
+import registerSemanticMemory from './agents/semantic-memory'
+import registerAgentDebate from './agents/agent-debate'
+import registerAgentGraph from './agents/agent-graph'
 import registerDropZoneControl from './handlers/SmartDropZone-Handler'
 import registerScreenPeeler from './handlers/ScreenPeeler-handler'
 import registerPhantomKeyboard from './handlers/PhantomControl-handler'
@@ -344,6 +349,11 @@ app.whenReady().then(() => {
   registerDropZoneControl(ipcMain)
   registerWorkflowManager()
   registerAgentOrchestrator()
+  registerSkillLibrary()
+  registerVisionEngine()
+  registerSemanticMemory()
+  registerAgentDebate()
+  registerAgentGraph()
   registerWebsiteBuilder()
   registerWidgetMaker()
   registerDeepResearch({ ipcMain })
@@ -375,7 +385,7 @@ app.whenReady().then(() => {
   registerAlertsHandlers(ipcMain)
   registerPrivacyHandlers(ipcMain)
   registerAppsHandlers(ipcMain)
-  registerIpcHandlers({ ipcMain, app })
+  // registerIpcHandlers removed — merged into registerPermanentMemory (permanent-memory.ts)
   // registerChatHandler() — already called on line 232
   registerSpotifyManager()
 

@@ -142,6 +142,13 @@ export default function registerGhostControl(ipcMain: IpcMain) {
     }
   })
 
+  let ghostModeEnabled = false
+  ipcMain.handle('ghost-toggle', async (_event, { enabled }) => {
+    ghostModeEnabled = enabled
+    console.log(`[GhostControl] Ghost mode ${enabled ? 'enabled' : 'disabled'}`)
+    return { success: true, enabled }
+  })
+
   ipcMain.handle('ghost-click-coordinate', async (_event, { x, y, doubleClick }) => {
     try {
       const primaryDisplay = screen.getPrimaryDisplay()

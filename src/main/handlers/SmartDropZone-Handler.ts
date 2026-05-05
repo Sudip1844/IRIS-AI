@@ -89,4 +89,24 @@ export default function registerDropZoneControl(ipcMain: IpcMain) {
       dropZoneWindow = null
     }
   })
+
+  ipcMain.handle('dropzone-toggle', async () => {
+    if (dropZoneWindow) {
+      dropZoneWindow.close()
+      dropZoneWindow = null
+      return false
+    } else {
+      const { width, height } = screen.getPrimaryDisplay().workAreaSize
+      dropZoneWindow = new BrowserWindow({
+        width,
+        height,
+        transparent: true,
+        frame: false,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        webPreferences: { nodeIntegration: true, contextIsolation: false }
+      })
+      return true
+    }
+  })
 }
