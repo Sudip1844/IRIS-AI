@@ -209,76 +209,71 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
     // Auto-select best available provider or fallback chain
     if (provider === 'auto' || provider === 'default') {
       const fallbackErrors: string[] = []
+      
+      const primaryProvider = providerStore.primary_agent?.provider;
+      const primaryModel = providerStore.primary_agent?.model;
 
-      // Try primary providers first
-      if (keys.gemini) {
-        try {
-          const ai = new GoogleGenAI({ apiKey: keys.gemini })
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`
-          })
-          return response.text || ''
-        } catch (err: any) {
-          const message = providerError('Gemini', err)
-          console.log('[MJ] Gemini failed, trying fallback:', message)
-          fallbackErrors.push(message)
-        }
+      // Define an execution function for a specific provider
+      const tryProvider = async (pName: string, pModel?: string) => {
+          if (!keys[pName as keyof ProviderStore]) return null;
+          try {
+              if (pName === 'gemini') {
+                  const ai = new GoogleGenAI({ apiKey: keys.gemini! });
+                  const response = await ai.models.generateContent({
+                      model: pModel || 'gemini-2.5-flash',
+                      contents: `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`
+                  });
+                  return response.text || '';
+              }
+              if (pName === 'openai') {
+                  return await retryAsync(() => chatWithOpenAI(keys.openai!, text, pModel || 'gpt-4o'), 2, 500);
+              }
+              if (pName === 'anthropic') {
+                  return await retryAsync(() => chatWithAnthropic(keys.anthropic!, text, pModel || 'claude-3-5-sonnet-20241022'), 2, 500);
+              }
+              if (pName === 'groq') {
+                  const groq = new Groq({ apiKey: keys.groq! });
+                  const completion = await groq.chat.completions.create({
+                      messages: [
+                          { role: 'system', content: 'You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional.' },
+                          { role: 'user', content: text }
+                      ],
+                      model: pModel || 'llama3-8b-8192'
+                  });
+                  return completion.choices[0]?.message?.content || '';
+              }
+              if (compatibleProviders.includes(pName as any)) {
+                  const config = PROVIDER_CONFIGS[pName as keyof ProviderStore];
+                  return await retryAsync(() => chatWithOpenAICompatible({
+                      apiKey: keys[pName as keyof ProviderStore]!,
+                      baseURL: resolveEndpoint(pName as keyof ProviderStore) || config.baseURL,
+                      model: pModel || config.defaultModel
+                  }, text), 2, 500);
+              }
+              return null;
+          } catch (err: any) {
+              const message = providerError(pName, err);
+              console.log(`[MJ] ${pName} failed, trying fallback:`, message);
+              fallbackErrors.push(message);
+              return null;
+          }
+      };
+
+      // 1. Try Primary Agent
+      if (primaryProvider) {
+          const res = await tryProvider(primaryProvider, primaryModel);
+          if (res) return res;
       }
 
-      if (keys.openai) {
-        const openaiKey = keys.openai
-        try {
-          return await retryAsync(() => chatWithOpenAI(openaiKey, text, model || 'gpt-4'), 2, 500)
-        } catch (err: any) {
-          const message = providerError('OpenAI', err)
-          console.log('[MJ] OpenAI failed, trying fallback:', message)
-          fallbackErrors.push(message)
-        }
+      // 2. Try Fallbacks
+      const fallbackList = ['gemini', 'openai', 'groq', 'anthropic', 'deepseek'];
+      for (const p of fallbackList) {
+          if (p === primaryProvider) continue; // Already tried
+          const res = await tryProvider(p);
+          if (res) return res;
       }
 
-      if (keys.anthropic) {
-        const anthropicKey = keys.anthropic
-        try {
-          return await retryAsync(
-            () => chatWithAnthropic(anthropicKey, text, model || 'claude-3-sonnet-20240229'),
-            2,
-            500
-          )
-        } catch (err: any) {
-          const message = providerError('Anthropic', err)
-          console.log('[MJ] Anthropic failed, trying fallback:', message)
-          fallbackErrors.push(message)
-        }
-      }
-
-      // Final fallback to Groq
-      if (keys.groq) {
-        try {
-          const groq = new Groq({ apiKey: keys.groq })
-          const completion = await groq.chat.completions.create({
-            messages: [
-              {
-                role: 'system',
-                content:
-                  'You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional.'
-              },
-              { role: 'user', content: text }
-            ],
-            model: 'llama3-8b-8192'
-          })
-          return completion.choices[0]?.message?.content || 'No response'
-        } catch (err: any) {
-          const message = providerError('Groq', err)
-          console.log('[MJ] Groq fallback failed:', message)
-          fallbackErrors.push(message)
-          return `ERROR: All configured providers failed. ${fallbackErrors.join(' | ')}`
-        }
-      }
-
-      if (fallbackErrors.length > 0) {
-        return `ERROR: All configured providers failed. ${fallbackErrors.join(' | ')}`
-      }
+      return `ERROR: All configured providers failed. ${fallbackErrors.join(' | ')}`;
     }
 
     return 'ERROR: No AI Model configured. Please save API keys in Settings (Gemini, OpenAI, Anthropic, or Groq).'
@@ -310,66 +305,96 @@ export default function registerChatHandler() {
       return providerStore[providerName]?.endpoint?.trim() || undefined
     }
 
-    // Stream from selected provider
+    // Stream from selected provider or auto fallback
+    const primaryProvider = providerStore.primary_agent?.provider;
+    const primaryModel = providerStore.primary_agent?.model;
+
+    const tryStreamProvider = async (pName: string, pModel?: string) => {
+        if (!keys[pName as keyof ProviderStore]) return false;
+        try {
+            if (pName === 'gemini') {
+                const ai = new GoogleGenAI({ apiKey: keys.gemini! });
+                const responseStream = await ai.models.generateContentStream({
+                    model: pModel || 'gemini-2.5-flash',
+                    contents: text
+                });
+                for await (const chunk of responseStream) {
+                    if (chunk.text) event.sender.send('chat-stream-chunk', chunk.text);
+                }
+                return true;
+            }
+            if (pName === 'openai') {
+                for await (const chunk of streamChatWithOpenAI(keys.openai!, text, pModel || 'gpt-4o')) {
+                    event.sender.send('chat-stream-chunk', chunk);
+                }
+                return true;
+            }
+            if (pName === 'anthropic') {
+                for await (const chunk of streamChatWithAnthropic(keys.anthropic!, text, pModel || 'claude-3-5-sonnet-20241022')) {
+                    event.sender.send('chat-stream-chunk', chunk);
+                }
+                return true;
+            }
+            if (pName === 'groq') {
+                const groq = new Groq({ apiKey: keys.groq! });
+                const stream = await groq.chat.completions.create({
+                    messages: [{ role: 'user', content: text }],
+                    model: pModel || 'llama3-8b-8192',
+                    stream: true
+                });
+                for await (const chunk of stream) {
+                    const content = chunk.choices[0]?.delta?.content || '';
+                    if (content) event.sender.send('chat-stream-chunk', content);
+                }
+                return true;
+            }
+            if (compatibleProviders.includes(pName as any)) {
+                const config = PROVIDER_CONFIGS[pName as keyof ProviderStore];
+                await streamChatWithOpenAICompatible({
+                    apiKey: keys[pName as keyof ProviderStore]!,
+                    baseURL: resolveEndpoint(pName as keyof ProviderStore) || config.baseURL,
+                    model: pModel || config.defaultModel
+                }, text, (chunk) => event.sender.send('chat-stream-chunk', chunk));
+                return true;
+            }
+            if (pName === 'huggingface') {
+                await streamChatWithHuggingFace(keys.huggingface!, text, (chunk) => event.sender.send('chat-stream-chunk', chunk), pModel || 'gpt2');
+                return true;
+            }
+            if (pName === 'tavily') {
+                await streamChatWithTavily(keys.tavily!, text, (chunk) => event.sender.send('chat-stream-chunk', chunk));
+                return true;
+            }
+            return false;
+        } catch (err: any) {
+            console.log(`[MJ Stream] ${pName} failed:`, err.message || err);
+            return false; // returning false will cause fallback to try the next
+        }
+    };
+
     try {
-      if (provider === 'openai' && keys.openai) {
-        for await (const chunk of streamChatWithOpenAI(
-          keys.openai,
-          text,
-          resolveModel('openai', 'gpt-4')
-        )) {
-          event.sender.send('chat-stream-chunk', chunk)
+        let streamSuccess = false;
+        
+        if (provider !== 'auto' && provider !== 'default' && provider) {
+            streamSuccess = await tryStreamProvider(provider, model);
+        } else {
+            // Auto routing using Primary Agent
+            if (primaryProvider) {
+                streamSuccess = await tryStreamProvider(primaryProvider, primaryModel);
+            }
+            if (!streamSuccess) {
+                const fallbackList = ['gemini', 'openai', 'groq', 'anthropic', 'deepseek'];
+                for (const p of fallbackList) {
+                    if (p === primaryProvider || (provider && p === provider)) continue;
+                    streamSuccess = await tryStreamProvider(p);
+                    if (streamSuccess) break;
+                }
+            }
         }
-      } else if (provider === 'anthropic' && keys.anthropic) {
-        for await (const chunk of streamChatWithAnthropic(
-          keys.anthropic,
-          text,
-          resolveModel('anthropic', 'claude-3-sonnet-20240229')
-        )) {
-          event.sender.send('chat-stream-chunk', chunk)
+
+        if (!streamSuccess) {
+            throw new Error('No AI provider configured for streaming or all configured providers failed.');
         }
-      } else if (
-        compatibleProviders.includes(provider as any) &&
-        keys[provider as keyof ProviderStore]
-      ) {
-        const providerName = provider as keyof ProviderStore
-        const config = PROVIDER_CONFIGS[providerName]
-        await streamChatWithOpenAICompatible(
-          {
-            apiKey: keys[providerName]!,
-            baseURL: resolveEndpoint(providerName) || config.baseURL,
-            model: resolveModel(providerName, config.defaultModel) || config.defaultModel
-          },
-          text,
-          (chunk) => event.sender.send('chat-stream-chunk', chunk)
-        )
-      } else if (provider === 'huggingface' && keys.huggingface) {
-        const huggingfaceKey = keys.huggingface
-        await streamChatWithHuggingFace(
-          huggingfaceKey,
-          text,
-          (chunk) => event.sender.send('chat-stream-chunk', chunk),
-          resolveModel('huggingface', 'gpt2')
-        )
-      } else if (provider === 'tavily' && keys.tavily) {
-        const tavilyKey = keys.tavily
-        await streamChatWithTavily(tavilyKey, text, (chunk) =>
-          event.sender.send('chat-stream-chunk', chunk)
-        )
-      } else if (keys.openai) {
-        // Default to OpenAI for streaming if available
-        for await (const chunk of streamChatWithOpenAI(
-          keys.openai,
-          text,
-          resolveModel('openai', 'gpt-4')
-        )) {
-          event.sender.send('chat-stream-chunk', chunk)
-        }
-      } else {
-        throw new Error(
-          'No AI provider configured for streaming or selected provider missing API key.'
-        )
-      }
     } catch (err: unknown) {
       logError('ChatStream', err)
       event.sender.send('chat-stream-error', extractErrorMessage(err))

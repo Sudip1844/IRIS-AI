@@ -102,6 +102,53 @@ const BUILT_IN_SKILLS: Omit<Skill, 'id' | 'createdAt' | 'updatedAt'>[] = [
     isBuiltIn: true
   },
   {
+    name: 'Prompt Master',
+    description: 'Writes perfectly structured, highly optimized prompts for other AI tools (Midjourney, ChatGPT, Claude) with zero token waste.',
+    category: 'productivity',
+    icon: '✨',
+    steps: [
+      {
+        type: 'prompt',
+        prompt:
+          'You are a Master Prompt Engineer. The user will give you a raw idea or task: "{{input}}"\n\n' +
+          'Your job is to rewrite this into the ultimate, optimized prompt for an advanced AI model. ' +
+          'Structure your final output clearly using these sections:\n' +
+          '1. **Role**: Define the exact persona the AI should adopt.\n' +
+          '2. **Context**: Provide necessary background.\n' +
+          '3. **Task**: State the exact objective clearly.\n' +
+          '4. **Constraints**: List strict rules the AI must follow.\n' +
+          '5. **Format**: Define the exact output format (e.g., JSON, markdown table, essay).\n\n' +
+          'Return ONLY the finalized prompt ready to be copy-pasted.'
+      }
+    ],
+    inputSchema: 'A rough idea, task, or unoptimized prompt',
+    tags: ['prompt', 'engineering', 'optimization'],
+    version: 1,
+    isBuiltIn: true
+  },
+  {
+    name: 'Browserbase Navigation',
+    description: 'Advanced web automation tool for complex DOM interactions and data extraction',
+    category: 'browser',
+    icon: '🌐',
+    steps: [
+      {
+        type: 'tool',
+        toolName: 'browser-navigate',
+        toolArgs: { url: '{{input}}', advanced: true }
+      },
+      {
+        type: 'tool',
+        toolName: 'browser-snapshot',
+        toolArgs: { filter: 'interactive' }
+      }
+    ],
+    inputSchema: 'URL to navigate and parse interactively',
+    tags: ['web', 'browse', 'extract'],
+    version: 1,
+    isBuiltIn: true
+  },
+  {
     name: 'Translate',
     description: 'Translate text between languages while preserving tone and meaning',
     category: 'communication',

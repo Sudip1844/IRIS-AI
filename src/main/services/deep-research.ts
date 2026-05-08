@@ -3,10 +3,10 @@ import { tavily } from '@tavily/core'
 import Groq from 'groq-sdk'
 
 export default function registerDeepResearch({ ipcMain }: { ipcMain: IpcMain }) {
-  ipcMain.handle('execute-deep-research', async (event, { query, tavilyKey, groqKey }) => {
+  ipcMain.handle('execute-deep-research', async (event, { query, tavilyKey }) => {
     try {
-      if (!tavilyKey || !groqKey) {
-        throw new Error('Missing API Keys. Please configure Tavily and Groq in the Command Center.')
+      if (!tavilyKey) {
+        throw new Error('Missing Tavily API Key. Please configure Tavily in the Command Center Vault.')
       }
 
       event.sender.send('oracle-progress', {
@@ -27,27 +27,34 @@ export default function registerDeepResearch({ ipcMain }: { ipcMain: IpcMain }) 
 
       event.sender.send('oracle-progress', {
         status: 'reading',
-        file: 'Llama 3.1 Instantly Synthesizing Data...',
+        file: 'Primary AI Engine Synthesizing Data...',
         totalFound: 2
       })
 
-      const groq = new Groq({ apiKey: groqKey })
       const prompt = `
         You are an elite research analyst. Answer: "${query}".
         Output ONLY a JSON object with a key "summary" containing a detailed, well-formatted markdown summary of your findings.
+        Do not output any markdown code blocks or conversational text, only the raw JSON.
         Context: ${rawContext}
         `
 
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [{ role: 'user', content: prompt }],
-        model: 'llama-3.1-8b-instant',
-        response_format: { type: 'json_object' }
+      const { handleChatRequest } = require('./chat-handler')
+      const answer = await handleChatRequest({
+          text: prompt,
+          provider: 'auto'
       })
 
-      const jsonString =
-        chatCompletion.choices[0]?.message?.content || '{"summary": "No data generated."}'
-      const parsedData = JSON.parse(jsonString)
-      const extractedSummary = parsedData.summary || 'No data generated.'
+      let extractedSummary = 'No data generated.';
+      try {
+          const cleanJsonStr = answer.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsedData = JSON.parse(cleanJsonStr)
+          if (parsedData.summary) {
+              extractedSummary = parsedData.summary;
+          }
+      } catch (e) {
+          // If JSON parse fails, just use the raw output (sometimes models don't follow JSON structure)
+          extractedSummary = answer;
+      }
 
       event.sender.send('oracle-progress', {
         status: 'embedded',

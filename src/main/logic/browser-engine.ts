@@ -8,14 +8,11 @@
  * command interface via IPC.
  */
 
-import puppeteer from 'puppeteer-extra'
-import { Browser, Page } from 'puppeteer'
-import StealthPlugin from 'puppeteer-extra-plugin-stealth'
-import { app } from 'electron'
+import { Camoufox } from 'camoufox-js'
+import { BrowserContext, Page } from 'playwright-core'
+import { app, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs'
-
-puppeteer.use(StealthPlugin())
 
 // ─── Element Reference System ───
 // Maps short refs like "e1", "e2" to actual DOM selectors
@@ -48,7 +45,7 @@ interface SnapshotResult {
 class BrowserEngine {
   private static instance: BrowserEngine | null = null
 
-  private browser: Browser | null = null
+  private browser: BrowserContext | null = null
   private pages: Map<string, Page> = new Map()
   private activeTabId: string | null = null
   private tabCounter = 0
@@ -70,7 +67,7 @@ class BrowserEngine {
 
   /** Check if the browser is currently running */
   isRunning(): boolean {
-    return this.browser !== null && this.browser.connected
+    return this.browser !== null
   }
 
   /** Launch or reconnect the persistent Chromium instance */
@@ -87,20 +84,14 @@ class BrowserEngine {
 
     this.profileDir = profilePath
 
-    this.browser = await puppeteer.launch({
+    this.browser = await Camoufox({
       headless: headless ? true : false,
-      defaultViewport: { width: 1280, height: 800 },
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-blink-features=AutomationControlled'
-      ],
-      userDataDir: profilePath
+      user_data_dir: profilePath,
+      windowize: true
     })
 
     // Handle browser disconnect
-    this.browser.on('disconnected', () => {
+    this.browser!.on('close', () => {
       console.log('[BrowserEngine] Browser disconnected')
       this.browser = null
       this.pages.clear()
@@ -108,7 +99,7 @@ class BrowserEngine {
     })
 
     // Open a blank tab
-    const initialPage = (await this.browser.pages())[0]
+    const initialPage = this.browser!.pages()[0] || await this.browser!.newPage()
     if (initialPage) {
       const tabId = this.generateTabId()
       this.pages.set(tabId, initialPage)
@@ -135,11 +126,7 @@ class BrowserEngine {
       page = this.pages.get(tabId)!
     }
 
-    await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
-    )
-
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 })
+    await page.goto(url, { waitUntil: 'load', timeout: 20000 })
     const title = await page.title()
 
     return { tabId, title }
@@ -245,7 +232,7 @@ class BrowserEngine {
 
     try {
       const filled = await page.evaluate(
-        (refId: string, val: string) => {
+        ({ refId, val }) => {
           const el = document.querySelector(`[data-mj-ref="${refId}"]`) as HTMLInputElement
           if (!el) return false
 
@@ -267,8 +254,7 @@ class BrowserEngine {
           el.dispatchEvent(new Event('change', { bubbles: true }))
           return true
         },
-        ref,
-        value
+        { refId: ref, val: value }
       )
 
       if (!filled) {
@@ -293,7 +279,7 @@ class BrowserEngine {
         }, ref)
       }
 
-      await page.keyboard.press(key as any)
+      await page.keyboard.press(key)
       await new Promise((r) => setTimeout(r, 500))
 
       return { success: true, message: `Pressed ${key}${ref ? ` on ${ref}` : ''}` }
@@ -348,10 +334,9 @@ class BrowserEngine {
   async screenshot(options?: { fullPage?: boolean }): Promise<string> {
     const page = this.getActivePage()
     const buffer = await page.screenshot({
-      encoding: 'base64',
       fullPage: options?.fullPage ?? false
     })
-    return buffer as string
+    return buffer.toString('base64')
   }
 
   /** List all open tabs */
@@ -412,6 +397,22 @@ class BrowserEngine {
       this.pages.clear()
       this.activeTabId = null
     }
+  }
+
+  /** Pause automation and request human intervention via a native dialog. */
+  async requestHumanIntervention(reason: string): Promise<boolean> {
+    console.log(`[BrowserEngine] Pausing for human intervention: ${reason}`)
+    
+    const result = await dialog.showMessageBox({
+      type: 'warning',
+      title: 'Human Intervention Required',
+      message: `The AI Agent has paused browser automation.\n\nReason: ${reason}\n\nPlease interact with the browser window, then click Continue.`,
+      buttons: ['Continue Automation', 'Abort'],
+      defaultId: 0,
+      cancelId: 1
+    })
+
+    return result.response === 0
   }
 
   // ─── Private helpers ───

@@ -16,12 +16,17 @@ export type ProviderName =
   | 'huggingface'
   | 'nvidia_nim'
   | 'tavily'
+  | 'primary_agent'
+  | 'brain'
+  | 'vision'
+  | 'code'
 
 export type ProviderConfig = {
   apiKey?: string
   model?: string
   endpoint?: string
   enabled?: boolean
+  provider?: string
 }
 
 export type ProviderStore = Record<ProviderName, ProviderConfig>
@@ -41,7 +46,11 @@ const DEFAULT_PROVIDERS: ProviderStore = {
   llama_cpp: { enabled: false, model: 'default' },
   huggingface: { enabled: false, model: 'default' },
   nvidia_nim: { enabled: false, model: 'default' },
-  tavily: { enabled: false, model: 'default' }
+  tavily: { enabled: false, model: 'default' },
+  primary_agent: { provider: 'groq', model: 'llama3-8b-8192' },
+  brain: { provider: 'groq' },
+  vision: { provider: 'gemini' },
+  code: { provider: 'openai' }
 }
 
 export function getProviderConfigPath() {

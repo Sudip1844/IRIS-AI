@@ -199,17 +199,16 @@ export default function registerOracle({ ipcMain }: { ipcMain: IpcMain }) {
     }
   })
 
-  ipcMain.handle('consult-oracle', async (_event, { query, geminiKey, groqKey }) => {
+  ipcMain.handle('consult-oracle', async (_event, { query, geminiKey }) => {
     try {
       if (vectorDB.length === 0)
         return { success: false, answer: 'Error: No files loaded into memory.' }
 
-      if (!geminiKey || !groqKey) {
-        throw new Error('Missing API Keys. Ensure both Gemini and Groq are configured in Settings.')
+      if (!geminiKey) {
+        throw new Error('Missing Gemini API Key for Embeddings.')
       }
 
       const ai = new GoogleGenAI({ apiKey: geminiKey })
-      const groq = new Groq({ apiKey: groqKey })
 
       const queryResponse: any = await ai.models.embedContent({
         model: 'gemini-embedding-001',
@@ -224,22 +223,21 @@ export default function registerOracle({ ipcMain }: { ipcMain: IpcMain }) {
         .slice(0, 3)
 
       const contextText = rankedChunks.map((c) => `// File: ${c.filePath}\n${c.chunk}`).join('\n\n')
+      
+      const fullPrompt = `System: You are an elite coding assistant. Answer the user's question based ONLY on the provided codebase context. Give direct code snippets and explanations. Be concise.
+      
+Context:\n${contextText}\n\nQuestion: ${query}`
 
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          {
-            role: 'system',
-            content:
-              "You are an elite coding assistant. Answer the user's question based ONLY on the provided codebase context. Give direct code snippets and explanations. Be concise."
-          },
-          { role: 'user', content: `Context:\n${contextText}\n\nQuestion: ${query}` }
-        ],
-        model: 'llama-3.1-8b-instant'
+      // Dynamically load the chat handler instead of static import to avoid circular dependencies
+      const { handleChatRequest } = require('./chat-handler')
+      const answer = await handleChatRequest({
+          text: fullPrompt,
+          provider: 'auto'
       })
 
       return {
         success: true,
-        answer: chatCompletion.choices[0].message.content,
+        answer: answer,
         scannedFiles: rankedChunks.map((c) => c.filePath)
       }
     } catch (err) {

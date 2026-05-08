@@ -480,7 +480,7 @@ app.on('will-quit', () => {
 })
 
 app.on('window-all-closed', () => {
-  // Do NOT quit — let tray keep running
+  app.quit()
 })
 
 // ── Quick Chat Window ────────────────────────────────────────────────

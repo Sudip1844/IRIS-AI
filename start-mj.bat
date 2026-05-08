@@ -1,30 +1,22 @@
 @echo off
-title MJ Assistant
-cd /d "D:\Antigravity\New folder\IRIS-AI"
+:: Self-hiding script logic to prevent CMD window from staying open
+if "%~1"=="hidden" goto :begin
 
-:: Try npx directly first
-where npx >nul 2>&1
-if %errorlevel%==0 (
-    npx electron .
-    exit /b
+set "vbsFile=%temp%\launch_mj.vbs"
+echo Set WshShell = CreateObject("WScript.Shell") > "%vbsFile%"
+echo WshShell.CurrentDirectory = "%~dp0" >> "%vbsFile%"
+echo WshShell.Run """%~f0"" hidden", 0, False >> "%vbsFile%"
+cscript //nologo "%vbsFile%"
+exit /b
+
+:begin
+cd /d "%~dp0"
+
+:: Gracefully kill any stuck Electron or Node processes spawned from this directory
+for /f "tokens=2" %%p in ('wmic process where "name='electron.exe' and executablepath like '%%MJ-AI%%'" get processid ^| findstr /r "[0-9]" 2^>nul') do (
+    taskkill /PID %%p /F >nul 2>&1
 )
 
-:: If npx not found in PATH, try common Node.js locations
-if exist "%APPDATA%\npm\npx.cmd" (
-    "%APPDATA%\npm\npx.cmd" electron .
-    exit /b
-)
+:: Run the Vite Dev Server
+call npm run dev
 
-if exist "%ProgramFiles%\nodejs\npx.cmd" (
-    "%ProgramFiles%\nodejs\npx.cmd" electron .
-    exit /b
-)
-
-:: Fallback: try to run node_modules directly
-if exist "node_modules\.bin\electron.cmd" (
-    "node_modules\.bin\electron.cmd" .
-    exit /b
-)
-
-echo ERROR: Could not find npx or electron. Make sure Node.js is installed.
-pause

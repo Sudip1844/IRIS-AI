@@ -1,4 +1,4 @@
-import { IpcMain } from 'electron'
+import { IpcMain, app } from 'electron'
 import os from 'os'
 import { exec } from 'child_process'
 
@@ -40,7 +40,7 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
     try {
       if (os.platform() !== 'win32') return []
 
-      const cmd = `powershell "Get-StartApps | Select-Object Name, AppID | ConvertTo-Json -Depth 1"`
+      const cmd = `powershell "$sh = New-Object -ComObject WScript.Shell; Get-ChildItem -Path '$env:ProgramData\\Microsoft\\Windows\\Start Menu\\Programs', '$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs' -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object { $lnk = $sh.CreateShortcut($_.FullName); [PSCustomObject]@{ Name=$_.Name; FullName=$_.FullName; Target=$lnk.TargetPath } } | ConvertTo-Json"`
 
       const jsonOutput = await runCommand(cmd)
 
@@ -55,12 +55,44 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
 
       const appsArray = Array.isArray(rawData) ? rawData : [rawData]
 
-      return appsArray
-        .filter((a: any) => a && a.Name && a.AppID) 
-        .map((a: any) => ({
-          name: a.Name.trim(),
-          id: a.AppID.trim()
-        }))
+      const validApps = appsArray.filter((a: any) => {
+        if (!a || !a.Name || !a.FullName) return false
+        const lower = a.Name.toLowerCase()
+        if (lower.includes('uninstall') || lower.includes('setup') || lower.includes('url')) return false
+        return true
+      })
+
+      const uniqueApps = new Map()
+      for (const item of validApps) {
+        let name = item.Name.replace('.lnk', '')
+        if (!uniqueApps.has(name)) {
+          uniqueApps.set(name, item.Target && item.Target.endsWith('.exe') ? item.Target : item.FullName)
+        }
+      }
+
+      const results: any[] = []
+      let count = 0
+      for (const [name, path] of uniqueApps.entries()) {
+        if (count >= 60) break; // Limit to 60 to prevent long startup delays
+        try {
+          const nativeImg = await app.getFileIcon(path, { size: 'normal' })
+          if (nativeImg && !nativeImg.isEmpty()) {
+              const base64 = nativeImg.toDataURL()
+              results.push({
+                id: name,
+                name: name,
+                icon: base64
+              })
+          } else {
+              throw new Error('Empty icon')
+          }
+        } catch (err) {
+          results.push({ id: name, name: name })
+        }
+        count++
+      }
+
+      return results
         .sort((a, b) => a.name.localeCompare(b.name)) 
     } catch (e) {
       return []
@@ -69,23 +101,41 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
 
   ipcMain.removeHandler('get-system-stats')
   ipcMain.handle('get-system-stats', async () => {
-    const totalMem = os.totalmem()
+    // Get PHYSICAL RAM via WMI (os.totalmem excludes GPU-shared memory on AMD/Intel iGPU)
+    let physicalTotalBytes = os.totalmem()
+    try {
+      const ramCmd = `powershell "(Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum"`
+      const ramOutput = await runCommand(ramCmd)
+      if (ramOutput) {
+        const parsed = parseInt(ramOutput.trim())
+        if (!isNaN(parsed) && parsed > 0) physicalTotalBytes = parsed
+      }
+    } catch (e) { /* fallback to os.totalmem */ }
+
     const freeMem = os.freemem()
-    
-    let temperature = 50
+
+    // Get CPU usage via WMI (matches Task Manager exactly)
+    let cpuUsage = getSystemCpuUsage()
+    try {
+      const cpuCmd = `powershell "(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average"`
+      const cpuOutput = await runCommand(cpuCmd)
+      if (cpuOutput) {
+        const parsed = parseFloat(cpuOutput.trim())
+        if (!isNaN(parsed)) cpuUsage = parsed.toFixed(1)
+      }
+    } catch (e) { /* fallback to os.cpus() calculation */ }
+
+    let temperature: number | null = null
     try {
       const tempCmd = `powershell "Get-WmiObject -Namespace root/wmi -Class MSApi_ThermalZoneTemperature -ErrorAction Stop | Select-Object -ExpandProperty CurrentTemperature"`
       const tempOutput = await runCommand(tempCmd)
       if (tempOutput) {
-        // Temperature is in tenths of degrees Kelvin
-        const kelvinTenths = parseInt(tempOutput.split('\\n')[0].trim())
+        const kelvinTenths = parseInt(tempOutput.split('\n')[0].trim())
         if (!isNaN(kelvinTenths)) {
           temperature = Math.round((kelvinTenths / 10.0) - 273.15)
         }
       }
-    } catch (e) {
-      // Ignore fallback
-    }
+    } catch (e) { /* Not available on this machine */ }
 
     let osType = 'Windows'
     try {
@@ -97,17 +147,33 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
     }
 
     return {
-      cpu: getSystemCpuUsage(),
+      cpu: cpuUsage,
       memory: {
-        total: (totalMem / 1024 ** 3).toFixed(1) + ' GB',
+        total: (physicalTotalBytes / 1024 ** 3).toFixed(1) + ' GB',
         free: (freeMem / 1024 ** 3).toFixed(1) + ' GB',
-        usedPercentage: (((totalMem - freeMem) / totalMem) * 100).toFixed(1)
+        used: ((physicalTotalBytes - freeMem) / 1024 ** 3).toFixed(1) + ' GB',
+        usedPercentage: (((physicalTotalBytes - freeMem) / physicalTotalBytes) * 100).toFixed(1)
       },
       temperature,
       os: {
         type: osType,
         uptime: (os.uptime() / 3600).toFixed(1) + 'h'
       }
+    }
+  })
+
+  // Real running processes (like Task Manager)
+  ipcMain.removeHandler('get-running-processes')
+  ipcMain.handle('get-running-processes', async () => {
+    try {
+      const cmd = `powershell "Get-Process | Where-Object {$_.WorkingSet64 -gt 5MB} | Select-Object Name, Id, @{N='CpuSec';E={[math]::Round($_.CPU, 1)}}, @{N='MemMB';E={[math]::Round($_.WorkingSet64/1MB, 0)}} | Sort-Object MemMB -Descending | Select-Object -First 40 | ConvertTo-Json -Depth 1"`
+      const output = await runCommand(cmd)
+      if (!output) return []
+      const parsed = JSON.parse(output)
+      return Array.isArray(parsed) ? parsed : [parsed]
+    } catch (e) {
+      console.error('Failed to get running processes:', e)
+      return []
     }
   })
 
@@ -126,7 +192,6 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
   ipcMain.removeHandler('get-defender-quarantine')
   ipcMain.handle('get-defender-quarantine', async () => {
     try {
-      // Get threat detections
       const cmd = `powershell "Get-MpThreatDetection | Select-Object ThreatName, Resources, InitialDetectionTime, DomainUser, ActionSuccess | ConvertTo-Json"`
       const output = await runCommand(cmd)
       if (!output) return []
@@ -141,7 +206,6 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
   ipcMain.removeHandler('remove-defender-quarantine')
   ipcMain.handle('remove-defender-quarantine', async (_, threatName: string) => {
     try {
-      // Remove threat
       const cmd = `powershell "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -Command Remove-MpThreat -ThreatName ''${threatName}''' -Verb RunAs -Wait"`
       await runCommand(cmd)
       return true
@@ -154,7 +218,6 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
   ipcMain.removeHandler('restore-defender-quarantine')
   ipcMain.handle('restore-defender-quarantine', async (_, threatName: string) => {
     try {
-      // Restore threat
       const cmd = `powershell "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -Command Restore-MpQuarantine -Name ''${threatName}''' -Verb RunAs -Wait"`
       await runCommand(cmd)
       return true
@@ -167,7 +230,6 @@ export default function registerSystemHandlers(ipcMain: IpcMain): void {
   ipcMain.removeHandler('run-full-scan')
   ipcMain.handle('run-full-scan', async () => {
     try {
-      // Start a full scan using Windows Defender (Runs as Admin to ensure it executes)
       const cmd = `powershell "Start-Process powershell -ArgumentList '-ExecutionPolicy Bypass -Command Start-MpScan -ScanType FullScan' -Verb RunAs"`
       await runCommand(cmd)
       return true

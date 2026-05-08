@@ -73,7 +73,7 @@ function saveTeams(): void {
 // ─── Core Orchestration ───
 
 /** Create a new agent team */
-function createTeam(
+export function createTeam(
   name: string,
   description: string,
   memberTemplates?: Omit<AgentDefinition, 'id'>[],
@@ -350,6 +350,102 @@ async function dispatchToTeam(
   }
 }
 
+/**
+ * Execute a request using Swarm handoff logic (Ruflo-inspired).
+ * Agents can directly transfer execution to another agent by outputting a JSON handoff directive.
+ */
+async function executeSwarm(
+  teamId: string,
+  userRequest: string,
+  startAgentId?: string
+): Promise<{ teamId: string; finalResponse: string; executionPath: string[] }> {
+  const team = teams.get(teamId)
+  if (!team) throw new Error(`Team ${teamId} not found`)
+
+  let currentAgent = startAgentId 
+    ? team.members.find(m => m.id === startAgentId) 
+    : team.members.find(m => m.id === team.leadId)
+
+  if (!currentAgent) throw new Error('Starting agent not found')
+
+  let currentRequest = userRequest
+  let isComplete = false
+  let finalResponse = ''
+  const executionPath: string[] = []
+  
+  const MAX_HOPS = 10
+  let hops = 0
+
+  while (!isComplete && hops < MAX_HOPS) {
+    hops++
+    executionPath.push(currentAgent.name)
+    
+    // Build context-enriched prompt
+    const context = buildAgentContext({
+      appRef: app,
+      agent: currentAgent,
+      teamId,
+      tokenBudget: 3000
+    })
+
+    const swarmPrompt = [
+      currentAgent.systemPrompt,
+      context.systemPromptAddition,
+      `\n--- Swarm Instructions ---`,
+      `You are part of a Swarm. If you need another agent to handle the next step, output a JSON handoff:`,
+      `{"handoff": "agent name", "reason": "why", "payload": "the context/request for them"}`,
+      `If you have completed the final goal, output your final response without JSON.`,
+      `\n--- Team Members ---`,
+      ...team.members.map(m => `- ${m.name}: ${m.capabilities.join(', ')}`),
+      `\n--- Current Input ---`,
+      currentRequest
+    ].join('\n')
+
+    console.log(`[Orchestrator] Swarm hop ${hops}: Executing ${currentAgent.name}`)
+
+    const rawResponse = await handleChatRequest({
+      text: swarmPrompt,
+      provider: (currentAgent.provider as any) || 'auto',
+      model: currentAgent.model
+    })
+
+    let handoffDirective: any = null
+    try {
+      const jsonMatch = rawResponse.match(/\{[\s\S]*"handoff"[\s\S]*\}/)
+      if (jsonMatch) handoffDirective = JSON.parse(jsonMatch[0])
+    } catch {
+      // Parsing failed
+    }
+
+    if (handoffDirective && handoffDirective.handoff) {
+      const targetAgent = team.members.find(m => 
+        m.name.toLowerCase().includes(handoffDirective.handoff.toLowerCase())
+      )
+
+      if (targetAgent && targetAgent.id !== currentAgent.id) {
+        console.log(`[Orchestrator] Swarm handoff: ${currentAgent.name} -> ${targetAgent.name}`)
+        currentAgent = targetAgent
+        currentRequest = `[Handoff from ${executionPath[executionPath.length-1]}]\nReason: ${handoffDirective.reason}\nPayload: ${handoffDirective.payload}`
+        continue
+      }
+    }
+
+    isComplete = true
+    finalResponse = rawResponse
+  }
+
+  // Save to global memory
+  saveToMemory(
+    app,
+    'global',
+    `Swarm execution on team "${team.name}" path: ${executionPath.join(' -> ')}`,
+    team.leadId,
+    ['swarm-execution']
+  )
+
+  return { teamId, finalResponse, executionPath }
+}
+
 // ─── IPC Registration ───
 
 export default function registerAgentOrchestrator() {
@@ -406,6 +502,19 @@ export default function registerAgentOrchestrator() {
     async (_, { teamId, request }: { teamId: string; request: string }) => {
       try {
         const result = await dispatchToTeam(teamId, request)
+        return { success: true, ...result }
+      } catch (e: any) {
+        return { success: false, error: e.message }
+      }
+    }
+  )
+
+  // Swarm execution
+  ipcMain.handle(
+    'agent-swarm',
+    async (_, { teamId, request, startAgentId }: { teamId: string; request: string; startAgentId?: string }) => {
+      try {
+        const result = await executeSwarm(teamId, request, startAgentId)
         return { success: true, ...result }
       } catch (e: any) {
         return { success: false, error: e.message }

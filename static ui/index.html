@@ -224,7 +224,7 @@
                         <canvas id="ram-chart"></canvas>
                     </div>
                     <div class="mt-2 flex justify-between text-[9px] md:text-[10px] font-bold opacity-50 uppercase tracking-tighter">
-                        <span id="ram-used">0GB</span><span>16GB</span>
+                        <span id="ram-used">0GB</span><span id="ram-total">--</span>
                     </div>
                 </div>
                 <div class="p-4 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm hover:shadow-md transition-all">
@@ -270,21 +270,12 @@
                             Live Feed
                         </div>
                     </div>
-                    <div class="space-y-1">
+                    <div id="process-list-container" class="space-y-1">
                         <div class="grid grid-cols-4 text-[8px] md:text-[10px] uppercase tracking-widest font-bold opacity-30 px-2 mb-4">
                             <span>Process</span><span>PID</span><span>CPU</span><span>Memory</span>
                         </div>
-                        <div id="process-core" class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent">
-                            <span class="font-bold truncate">MJ_Core.exe</span><span class="opacity-50">4829</span><span>12.4%</span><span class="truncate">452MB</span>
-                        </div>
-                        <div id="process-brain" class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent">
-                            <span class="font-bold truncate">Brain_Engine</span><span class="opacity-50">1022</span><span>4.2%</span><span class="truncate">1.2GB</span>
-                        </div>
-                        <div id="process-voice" class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent">
-                            <span class="font-bold truncate">Voice_STT</span><span class="opacity-50">9921</span><span>0.1%</span><span class="truncate">89MB</span>
-                        </div>
-                        <div class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm bg-primary/10 text-primary">
-                            <span class="font-bold truncate">System_UI</span><span class="opacity-50">3312</span><span class="text-emerald-500">1.8%</span><span class="truncate">210MB</span>
+                        <div class="p-4 text-center opacity-40 text-xs col-span-4">
+                            Waiting for system data...
                         </div>
                     </div>
                 </div>
@@ -296,21 +287,21 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
                                 <span class="text-sm font-medium">Security Engine</span>
                             </div>
-                            <span class="text-[10px] font-bold text-emerald-500">OPTIMAL</span>
+                            <span id="health-security" class="text-[10px] font-bold text-emerald-500">CHECKING...</span>
                         </div>
                         <div class="flex items-center justify-between p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10">
                             <div class="flex items-center gap-3">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
-                                <span class="text-sm font-medium">Auto-Update</span>
+                                <span class="text-sm font-medium">OS Info</span>
                             </div>
-                            <span class="text-[10px] font-bold text-blue-500">SYNCED</span>
+                            <span id="health-os" class="text-[10px] font-bold text-blue-500">LOADING...</span>
                         </div>
                         <div class="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-2">
                             <div class="flex items-center gap-3">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
-                                <span class="text-sm font-medium">Memory Usage</span>
+                                <span class="text-sm font-medium">Memory Status</span>
                             </div>
-                            <p class="text-[10px] opacity-60 leading-relaxed">System memory is at 62%. Consider closing unused background tasks for better performance.</p>
+                            <p id="health-memory" class="text-[10px] opacity-60 leading-relaxed">Waiting for system data...</p>
                         </div>
                     </div>
                 </div>
@@ -726,109 +717,36 @@
                 <p class="text-sm text-muted-foreground">Configure AI agents, API keys, security, and integrations.</p>
             </div>
 
-            <!-- ═══════════ AI AGENT CONFIGURATION ═══════════ -->
+            <!-- ═══════════ PRIMARY AI ORCHESTRATOR ═══════════ -->
             <div class="p-5 md:p-6 rounded-2xl md:rounded-3xl border bg-card border-border shadow-sm space-y-5">
                 <div>
-                    <h3 class="text-base md:text-lg font-bold flex items-center gap-2">🧠 AI Agent Configuration</h3>
-                    <p class="text-[10px] md:text-xs text-muted-foreground mt-1">Assign specific AI models to different tasks. Each card = one role.</p>
+                    <h3 class="text-base md:text-lg font-bold flex items-center gap-2">🧠 Primary AI Orchestrator</h3>
+                    <p class="text-[10px] md:text-xs text-muted-foreground mt-1">Select your main AI engine. MJ will autonomously use this engine to analyze tasks and delegate sub-tasks (vision, research, coding) as needed.</p>
                 </div>
 
-                <!-- Primary Agents Row -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <!-- Primary Brain -->
-                    <div class="p-4 rounded-2xl bg-background border border-border space-y-3 hover:border-blue-500/30 transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 text-base">🧠</div>
-                                <div class="flex flex-col"><span class="text-xs font-bold">Primary Brain</span><span class="text-[10px] opacity-50">Main reasoning & chat</span></div>
-                            </div>
-                            <span class="text-[8px] font-bold px-2 py-1 bg-blue-500 text-white rounded-full uppercase">Active</span>
-                        </div>
-                        <select id="brain-provider" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500/20">
-                            <option value="gemini">Google (Gemini)</option>
-                            <option value="anthropic">Anthropic (Claude)</option>
-                            <option value="groq">Groq (Llama/Mixtral)</option>
-                            <option value="openai">OpenAI (GPT)</option>
-                            <option value="deepseek">DeepSeek</option>
-                            <option value="mistral">Mistral</option>
-                            <option value="openrouter">OpenRouter</option>
-                            <option value="xai">xAI (Grok)</option>
-                        </select>
-                        <div class="flex gap-2">
-                            <input type="password" id="brain-api-key" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500/20" placeholder="Enter API key..." readonly>
-                            <button class="agent-edit-btn text-[10px] font-bold px-3 py-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500/20 whitespace-nowrap transition-colors" data-target="brain-api-key">Edit</button>
-                        </div>
-                    </div>
-
-                    <!-- Vision Agent -->
-                    <div class="p-4 rounded-2xl bg-background border border-border space-y-3 hover:border-violet-500/30 transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-500 text-base">👁️</div>
-                                <div class="flex flex-col"><span class="text-xs font-bold">Vision Agent</span><span class="text-[10px] opacity-50">Screen & image analysis</span></div>
-                            </div>
-                            <span class="text-[8px] font-bold px-2 py-1 bg-violet-500/90 text-white rounded-full uppercase">Sub-Agent</span>
-                        </div>
-                        <select id="vision-provider" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-violet-500/20">
-                            <option value="gemini">Google (Gemini Vision)</option>
-                            <option value="anthropic">Anthropic (Claude Vision)</option>
-                            <option value="openai">OpenAI (GPT-4 Vision)</option>
-                        </select>
-                        <div class="flex gap-2">
-                            <input type="password" id="vision-api-key" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-violet-500/20" placeholder="Enter API key..." readonly>
-                            <button class="agent-edit-btn text-[10px] font-bold px-3 py-2 bg-violet-500/10 text-violet-500 rounded-lg hover:bg-violet-500/20 whitespace-nowrap transition-colors" data-target="vision-api-key">Edit</button>
-                        </div>
-                    </div>
-
-                    <!-- Code Agent -->
-                    <div class="p-4 rounded-2xl bg-background border border-border space-y-3 hover:border-emerald-500/30 transition-colors">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 text-base">💻</div>
-                                <div class="flex flex-col"><span class="text-xs font-bold">Code Agent</span><span class="text-[10px] opacity-50">Coding & automation</span></div>
-                            </div>
-                            <span class="text-[8px] font-bold px-2 py-1 bg-emerald-500/90 text-white rounded-full uppercase">Sub-Agent</span>
-                        </div>
-                        <select id="code-provider" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/20">
-                            <option value="anthropic">Anthropic (Claude)</option>
-                            <option value="gemini">Google (Gemini)</option>
-                            <option value="groq">Groq (Llama)</option>
-                            <option value="openai">OpenAI (GPT)</option>
-                            <option value="deepseek">DeepSeek</option>
-                            <option value="mistral">Mistral</option>
-                            <option value="openrouter">OpenRouter</option>
-                            <option value="xai">xAI (Grok)</option>
-                        </select>
-                        <div class="flex gap-2">
-                            <input type="password" id="code-api-key" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500/20" placeholder="Enter API key..." readonly>
-                            <button class="agent-edit-btn text-[10px] font-bold px-3 py-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500/20 whitespace-nowrap transition-colors" data-target="code-api-key">Edit</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tool Agents Row -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                    <!-- Research Agent -->
-                    <div class="p-4 rounded-2xl bg-background border border-border space-y-3 hover:border-amber-500/30 transition-colors">
+                <div class="p-4 rounded-2xl bg-background border border-border space-y-4 hover:border-primary/30 transition-colors">
+                    <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 text-base">🔍</div>
-                            <div class="flex flex-col"><span class="text-xs font-bold">Research Agent (Tavily)</span><span class="text-[10px] opacity-50">Deep web research & data retrieval</span></div>
+                            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary text-xl">👑</div>
+                            <div class="flex flex-col"><span class="text-sm font-bold">Primary Engine</span><span class="text-xs opacity-60">The autonomous brain of MJ</span></div>
                         </div>
-                        <div class="flex gap-2">
-                            <input type="password" id="tavily-api-key" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-amber-500/20" placeholder="tvly-..." readonly>
-                            <button class="agent-edit-btn text-[10px] font-bold px-3 py-2 bg-amber-500/10 text-amber-500 rounded-lg hover:bg-amber-500/20 whitespace-nowrap transition-colors" data-target="tavily-api-key">Edit</button>
-                        </div>
+                        <span class="text-[9px] font-bold px-2 py-1 bg-primary text-white rounded-full uppercase tracking-wider">Active</span>
                     </div>
-
-                    <!-- Image Generation -->
-                    <div class="p-4 rounded-2xl bg-background border border-border space-y-3 hover:border-rose-500/30 transition-colors">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 text-base">🎨</div>
-                            <div class="flex flex-col"><span class="text-xs font-bold">Image Generation</span><span class="text-[10px] opacity-50">AI image creation & editing</span></div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold opacity-60 uppercase tracking-widest pl-1">Provider</label>
+                            <select id="primary-provider" class="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer">
+                                <option value="" disabled selected>Select Provider...</option>
+                                <!-- Dynamically populated based on saved keys -->
+                            </select>
                         </div>
-                        <div class="flex gap-2">
-                            <input type="password" id="image-api-key" class="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-rose-500/20" placeholder="hf_..." readonly>
-                            <button class="agent-edit-btn text-[10px] font-bold px-3 py-2 bg-rose-500/10 text-rose-500 rounded-lg hover:bg-rose-500/20 whitespace-nowrap transition-colors" data-target="image-api-key">Edit</button>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold opacity-60 uppercase tracking-widest pl-1">Model</label>
+                            <select id="primary-model" class="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-50">
+                                <option value="" disabled selected>Select Model...</option>
+                                <!-- Dynamically populated based on provider -->
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -1127,9 +1045,9 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="./assets/qrcode.min.js"></script>
+<script src="./assets/chart.min.js"></script>
+<script src="./assets/marked.min.js"></script>
 <script src="./assets/ui-utils.js"></script>
 <script src="./assets/app.js"></script>
 </body>

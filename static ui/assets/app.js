@@ -221,7 +221,7 @@
     updateStats()
     updateProcesses()
     statsInterval = setInterval(updateStats, 3000)
-    window.processInterval = setInterval(updateProcesses, 30000)
+    window.processInterval = setInterval(updateProcesses, 10000)
   }
 
   function stopStatsUpdates() {
@@ -252,18 +252,63 @@
         const info = await ipc.invoke('get-system-stats')
         if (info) {
           if (info.cpu !== undefined) {
-            const cpuStr = String(info.cpu)
+            const cpuVal = parseFloat(info.cpu)
+            const cpuStr = Math.round(cpuVal)
             if (cpuValue) {
               cpuValue.textContent = cpuStr + '%'
-              cpuBar.style.width = cpuStr + '%'
+              if (cpuBar) cpuBar.style.width = cpuStr + '%'
+            }
+            if (cpuChart) {
+              cpuChart.data.datasets[0].data.shift()
+              cpuChart.data.datasets[0].data.push(cpuVal)
+              cpuChart.update()
             }
           }
           if (info.memory !== undefined) {
+            const ramVal = parseFloat(info.memory.usedPercentage)
             if (ramValue) {
-              ramValue.textContent = info.memory.usedPercentage + '%'
-              ramBar.style.width = info.memory.usedPercentage + '%'
+              ramValue.textContent = Math.round(ramVal) + '%'
+              if (ramBar) ramBar.style.width = Math.round(ramVal) + '%'
             }
-            if (ramUsed) ramUsed.textContent = info.memory.free + ' Free'
+            if (ramUsed) ramUsed.textContent = info.memory.used + ' USED / ' + info.memory.free + ' FREE'
+            const ramTotal = document.getElementById('ram-total')
+            if (ramTotal) ramTotal.textContent = info.memory.total
+
+            if (ramChart) {
+              ramChart.data.datasets[0].data.shift()
+              ramChart.data.datasets[0].data.push(ramVal)
+              ramChart.update()
+            }
+
+            // Update System Health - Memory Warning
+            const healthMemory = document.getElementById('health-memory')
+            if (healthMemory) {
+              const pct = parseFloat(info.memory.usedPercentage)
+              if (pct > 85) {
+                healthMemory.textContent = `⚠️ Memory usage is critical at ${pct}%! Close unused apps to free up resources.`
+              } else if (pct > 70) {
+                healthMemory.textContent = `Memory usage is at ${pct}%. Consider closing unused background tasks for better performance.`
+              } else {
+                healthMemory.textContent = `Memory usage is healthy at ${pct}%. System is running smoothly.`
+              }
+            }
+          }
+
+          // Update OS Info in health panel
+          if (info.os) {
+            const healthOs = document.getElementById('health-os')
+            if (healthOs) healthOs.textContent = info.os.type || 'Windows'
+          }
+
+          // Update Battery
+          if (navigator.getBattery) {
+            try {
+              const battery = await navigator.getBattery()
+              const batteryValue = document.getElementById('battery-value')
+              const batteryBar = document.getElementById('battery-bar')
+              if (batteryValue) batteryValue.textContent = Math.round(battery.level * 100) + '%'
+              if (batteryBar) batteryBar.style.width = Math.round(battery.level * 100) + '%'
+            } catch (battErr) { /* no battery on desktop */ }
           }
         }
 
@@ -286,24 +331,29 @@
             if (diskTotal) diskTotal.textContent = cDrive.TotalGB + 'GB Total'
           }
         }
+
+        // Get Security Status for health panel
+        try {
+          const secStatus = await ipc.invoke('get-security-status')
+          const healthSecurity = document.getElementById('health-security')
+          if (healthSecurity && secStatus) {
+            healthSecurity.textContent = secStatus.antivirus === 'ACTIVE' ? 'OPTIMAL' : 'WARNING'
+            healthSecurity.className = 'text-[10px] font-bold ' + (secStatus.antivirus === 'ACTIVE' ? 'text-emerald-500' : 'text-amber-500')
+          }
+        } catch (secErr) {
+          const healthSecurity = document.getElementById('health-security')
+          if (healthSecurity) healthSecurity.textContent = 'ACTIVE'
+        }
+
         return
       } catch (e) {
-        console.error('Stats error:', e) /* fall through to simulated */
+        console.error('Stats error:', e)
       }
     }
-    // Simulated stats for demo / non-Electron mode
-    const cpu = Math.floor(Math.random() * 30) + 5
-    const ram = Math.floor(Math.random() * 20) + 40
-    const ramGB = ((ram / 100) * 16).toFixed(1)
-    if (cpuValue) {
-      cpuValue.textContent = cpu + '%'
-      cpuBar.style.width = cpu + '%'
-    }
-    if (ramValue) {
-      ramValue.textContent = ram + '%'
-      ramBar.style.width = ram + '%'
-    }
-    if (ramUsed) ramUsed.textContent = ramGB + 'GB'
+    // Non-Electron fallback (demo mode)
+    if (cpuValue) cpuValue.textContent = '--'
+    if (ramValue) ramValue.textContent = '--'
+    if (ramUsed) ramUsed.textContent = '--'
   }
 
   // ========= CHAT → ELECTRON IPC BRIDGE =========
@@ -1112,11 +1162,12 @@
   // --- Dynamic Processes ---
   async function updateProcesses() {
     if (!isElectron) return
+
+    // 1) Populate Apps grid with installed apps
     try {
       const apps = await ipc.invoke('get-installed-apps')
       const appsGrid = document.getElementById('apps-grid')
       if (apps && apps.length > 0 && appsGrid) {
-        // Helper to generate a consistent color based on string
         const stringToColor = (str) => {
           let hash = 0
           for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
@@ -1124,55 +1175,60 @@
           return `hsl(${hue}, 70%, 60%)`
         }
 
-        // Populate bottom grid with all apps
         appsGrid.innerHTML = apps
           .map((a) => {
             const letter = (a.name || 'A').charAt(0).toUpperCase()
             const color = stringToColor(a.name)
-            const isAllowed = Math.random() > 0.3 // Default randomly for demo, or all true
             return `
                     <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="${escapeHtml(a.name)}">
                         <div class="flex items-center gap-2 md:gap-3 min-w-0">
+                            ${a.icon ? `<img src="${a.icon}" class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl object-contain shadow-sm" />` : `
                             <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 text-white shadow-sm font-bold text-lg md:text-xl" style="background-color: ${color}">
                                 ${letter}
-                            </div>
+                            </div>`}
                             <span class="font-bold text-xs md:text-sm truncate">${escapeHtml(a.name)}</span>
                         </div>
                         <button onclick="this.dataset.allowed = this.dataset.allowed === 'true' ? 'false' : 'true'; this.textContent = this.dataset.allowed === 'true' ? 'Allowed' : 'Denied'; this.className = 'app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all ' + (this.dataset.allowed === 'true' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500')" 
-                                class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all ${isAllowed ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}" 
-                                data-allowed="${isAllowed}">
-                            ${isAllowed ? 'Allowed' : 'Denied'}
+                                class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" 
+                                data-allowed="true">
+                            Allowed
                         </button>
                     </div>
                 `
           })
           .join('')
+      }
+    } catch (err) {
+      console.error('Failed to get installed apps:', err)
+    }
 
-        // Populate active feed in Monitor
-        const processCore = document.getElementById('process-core')
-        if (processCore && processCore.parentElement) {
-          processCore.parentElement.innerHTML = `
-                        <div class="grid grid-cols-4 text-[8px] md:text-[10px] uppercase tracking-widest font-bold opacity-30 px-2 mb-4">
-                            <span>Process</span><span>PID</span><span>Status</span><span>AppID</span>
-                        </div>
-                        ${apps
-                          .slice(0, 4)
+    // 2) Populate Monitor → Active Processes with REAL running processes
+    try {
+      const procs = await ipc.invoke('get-running-processes')
+      const processContainer = document.getElementById('process-list-container')
+      if (processContainer && procs && procs.length > 0) {
+        processContainer.innerHTML = `
+                    <div class="grid grid-cols-4 text-[8px] md:text-[10px] uppercase tracking-widest font-bold opacity-30 px-2 mb-2 sticky top-0 bg-card z-10 pb-2">
+                        <span>Process</span><span>PID</span><span>CPU (sec)</span><span>Memory</span>
+                    </div>
+                    <div style="max-height: 400px; overflow-y: auto; scrollbar-width: thin;" class="space-y-0.5 pr-1">
+                        ${procs
                           .map(
-                            (a) => `
-                        <div class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent align-middle items-center">
-                            <span class="font-bold truncate text-xs">${escapeHtml(a.name)}</span>
-                            <span class="opacity-50 text-[10px]">Local</span>
-                            <span class="text-emerald-500 font-bold text-[10px]">Active</span>
-                            <span class="truncate opacity-50 text-[9px]">${escapeHtml(a.id)}</span>
+                            (p) => `
+                        <div class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent items-center">
+                            <span class="font-bold truncate text-xs">${escapeHtml(p.Name || '')}</span>
+                            <span class="opacity-50 text-[10px]">${p.Id || ''}</span>
+                            <span class="text-blue-500 font-medium text-[10px]">${p.CpuSec || 0}s</span>
+                            <span class="truncate font-medium text-[10px] ${(p.MemMB || 0) > 500 ? 'text-rose-500' : (p.MemMB || 0) > 200 ? 'text-amber-500' : 'text-emerald-500'}">${p.MemMB || 0} MB</span>
                         </div>
                         `
                           )
                           .join('')}
-                    `
-        }
+                    </div>
+                `
       }
     } catch (err) {
-      console.error('Failed to get apps:', err)
+      console.error('Failed to get running processes:', err)
     }
   }
 
@@ -1382,58 +1438,102 @@
   })
 
   // ========= LOAD SAVED KEYS (populate Settings fields) =========
+  const PROVIDER_MODELS = {
+    openai: [
+      { id: 'gpt-4o', name: 'GPT-4o (Best overall)' },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' }
+    ],
+    gemini: [
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' }
+    ],
+    groq: [
+      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
+      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
+      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' }
+    ],
+    anthropic: [
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
+    ],
+    deepseek: [
+      { id: 'deepseek-chat', name: 'DeepSeek Chat (V3)' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (R1)' }
+    ]
+  };
+
   async function loadSavedKeys() {
     if (!isElectron) return
     try {
       providerConfig = await ipc.invoke('provider-load-config')
       if (providerConfig) {
         // Populate API key fields
-        if (geminiKey && providerConfig.gemini?.apiKey) {
-          geminiKey.value = providerConfig.gemini.apiKey
-        }
-        if (groqKey && providerConfig.groq?.apiKey) {
-          groqKey.value = providerConfig.groq.apiKey
-        }
-        if (openaiKey && providerConfig.openai?.apiKey) {
-          openaiKey.value = providerConfig.openai.apiKey
-        }
-        if (anthropicKey && providerConfig.anthropic?.apiKey) {
-          anthropicKey.value = providerConfig.anthropic.apiKey
-        }
-        if (deepseekKey && providerConfig.deepseek?.apiKey) {
-          deepseekKey.value = providerConfig.deepseek.apiKey
-        }
-        if (mistralKey && providerConfig.mistral?.apiKey) {
-          mistralKey.value = providerConfig.mistral.apiKey
-        }
-        if (openrouterKey && providerConfig.openrouter?.apiKey) {
-          openrouterKey.value = providerConfig.openrouter.apiKey
-        }
-        if (xaiKey && providerConfig.xai?.apiKey) {
-          xaiKey.value = providerConfig.xai.apiKey
-        }
-        if (nvidiaKey && providerConfig.nvidia_nim?.apiKey) {
-          nvidiaKey.value = providerConfig.nvidia_nim.apiKey
-        }
-        if (hfKey && providerConfig.huggingface?.apiKey) {
-          hfKey.value = providerConfig.huggingface.apiKey
-        }
-        if (tavilyKey && providerConfig.tavily?.apiKey) {
-          tavilyKey.value = providerConfig.tavily.apiKey
-        }
+        if (geminiKey && providerConfig.gemini?.apiKey) geminiKey.value = providerConfig.gemini.apiKey
+        if (groqKey && providerConfig.groq?.apiKey) groqKey.value = providerConfig.groq.apiKey
+        if (openaiKey && providerConfig.openai?.apiKey) openaiKey.value = providerConfig.openai.apiKey
+        if (anthropicKey && providerConfig.anthropic?.apiKey) anthropicKey.value = providerConfig.anthropic.apiKey
+        if (deepseekKey && providerConfig.deepseek?.apiKey) deepseekKey.value = providerConfig.deepseek.apiKey
+        if (mistralKey && providerConfig.mistral?.apiKey) mistralKey.value = providerConfig.mistral.apiKey
+        if (openrouterKey && providerConfig.openrouter?.apiKey) openrouterKey.value = providerConfig.openrouter.apiKey
+        if (xaiKey && providerConfig.xai?.apiKey) xaiKey.value = providerConfig.xai.apiKey
+        if (nvidiaKey && providerConfig.nvidia_nim?.apiKey) nvidiaKey.value = providerConfig.nvidia_nim.apiKey
+        if (hfKey && providerConfig.huggingface?.apiKey) hfKey.value = providerConfig.huggingface.apiKey
+        if (tavilyKey && providerConfig.tavily?.apiKey) tavilyKey.value = providerConfig.tavily.apiKey
 
-        // Populate agent provider selects (map provider names)
-        const brainProvider = document.getElementById('brain-provider')
-        if (brainProvider && providerConfig.brain?.provider) {
-          brainProvider.value = providerConfig.brain.provider
-        }
-        const visionProvider = document.getElementById('vision-provider')
-        if (visionProvider && providerConfig.vision?.provider) {
-          visionProvider.value = providerConfig.vision.provider
-        }
-        const codeProvider = document.getElementById('code-provider')
-        if (codeProvider && providerConfig.code?.provider) {
-          codeProvider.value = providerConfig.code.provider
+        // Populate Primary Provider Dropdown based on available keys
+        const primaryProvider = document.getElementById('primary-provider');
+        const primaryModel = document.getElementById('primary-model');
+        
+        if (primaryProvider && primaryModel) {
+            primaryProvider.innerHTML = '<option value="" disabled selected>Select Provider...</option>';
+            
+            const availableProviders = [];
+            if (providerConfig.openai?.apiKey) availableProviders.push({ id: 'openai', name: 'OpenAI (GPT)' });
+            if (providerConfig.gemini?.apiKey) availableProviders.push({ id: 'gemini', name: 'Google (Gemini)' });
+            if (providerConfig.groq?.apiKey) availableProviders.push({ id: 'groq', name: 'Groq (Llama)' });
+            if (providerConfig.anthropic?.apiKey) availableProviders.push({ id: 'anthropic', name: 'Anthropic (Claude)' });
+            if (providerConfig.deepseek?.apiKey) availableProviders.push({ id: 'deepseek', name: 'DeepSeek' });
+
+            availableProviders.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.name;
+                primaryProvider.appendChild(opt);
+            });
+
+            // Handle Provider Change
+            primaryProvider.addEventListener('change', (e) => {
+                const provider = e.target.value;
+                primaryModel.innerHTML = '<option value="" disabled selected>Select Model...</option>';
+                
+                if (PROVIDER_MODELS[provider]) {
+                    primaryModel.disabled = false;
+                    PROVIDER_MODELS[provider].forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = m.name;
+                        primaryModel.appendChild(opt);
+                    });
+                } else {
+                    primaryModel.disabled = true;
+                    primaryModel.innerHTML = '<option value="default">Default Model</option>';
+                }
+            });
+
+            // Set saved primary config if exists
+            if (providerConfig.primary_agent) {
+                if (availableProviders.find(p => p.id === providerConfig.primary_agent.provider)) {
+                    primaryProvider.value = providerConfig.primary_agent.provider;
+                    // Trigger change to populate models
+                    primaryProvider.dispatchEvent(new Event('change'));
+                    setTimeout(() => {
+                        primaryModel.value = providerConfig.primary_agent.model || '';
+                    }, 50);
+                }
+            }
         }
       }
     } catch (e) {
@@ -1443,104 +1543,10 @@
 
   // (Old EXTERNAL INTEGRATIONS SAVE/EDIT TOGGLE logic removed, now handled by individual edit buttons)
 
-  // ========= MIC TOGGLE (Voice Input) =========
-  const micBtn = document.getElementById('mic-btn')
-  const micIconOff = document.getElementById('mic-icon-off')
-  const micIconOn = document.getElementById('mic-icon-on')
-  const micPulse = document.getElementById('mic-pulse')
-  let isMicActive = false
-  let recognition = null
-
-  function toggleMic() {
-    isMicActive = !isMicActive
-
-    if (isMicActive) {
-      micBtn.classList.add('mic-active')
-      micIconOff.style.display = 'none'
-      micIconOn.style.display = ''
-      micPulse.style.display = ''
-      voiceStatus.textContent = 'Voice: Listening...'
-      startSpeechRecognition()
-    } else {
-      micBtn.classList.remove('mic-active')
-      micIconOff.style.display = ''
-      micIconOn.style.display = 'none'
-      micPulse.style.display = 'none'
-      voiceStatus.textContent = 'Voice: Standby'
-      stopSpeechRecognition()
-    }
-  }
-
-  function startSpeechRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) {
-      console.warn('Speech Recognition not supported')
-      return
-    }
-
-    recognition = new SpeechRecognition()
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.lang = 'en-US'
-
-    recognition.onresult = (event) => {
-      let finalTranscript = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript
-        }
-      }
-      if (finalTranscript.trim()) {
-        chatInput.value = finalTranscript.trim()
-        sendBtn.disabled = false
-        // Auto-send after voice input
-        sendMessage()
-        // Turn off mic after capturing
-        toggleMic()
-      }
-    }
-
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error)
-      if (isMicActive) toggleMic()
-    }
-
-    recognition.onend = () => {
-      // Restart if still active (browser may stop it)
-      if (isMicActive && recognition) {
-        try {
-          recognition.start()
-        } catch (e) {
-          /* already running */
-        }
-      }
-    }
-
-    try {
-      recognition.start()
-    } catch (e) {
-      console.error('Could not start recognition:', e)
-    }
-  }
-
-  function stopSpeechRecognition() {
-    if (recognition) {
-      try {
-        recognition.stop()
-      } catch (e) {
-        /* ok */
-      }
-      recognition = null
-    }
-  }
-
-  if (micBtn) {
-    micBtn.addEventListener('click', () => toggleMic())
-  }
-
+  // NOTE: MIC TOGGLE is handled above in the Audio Engine section (line ~450-584)
   // Listen for Alt+Space from main process
   if (isElectron) {
-    ipc.on('toggle-mic', () => toggleMic())
+    ipc.on('toggle-mic', () => toggleMicrophone())
   }
 
   // ========= PHONE LINK (ADB) CONFIGURATION =========
@@ -2345,11 +2351,22 @@
         tavily: { apiKey: tavilyKey.value.trim() }
       }
 
+      const primaryProvider = document.getElementById('primary-provider');
+      const primaryModel = document.getElementById('primary-model');
+      if (primaryProvider && primaryModel && primaryProvider.value) {
+          config.primary_agent = {
+              provider: primaryProvider.value,
+              model: primaryModel.value !== 'default' ? primaryModel.value : null
+          };
+      }
+
       if (isElectron) {
         try {
           const success = await ipc.invoke('provider-save-config', config)
           if (success) {
             saveKeysBtn.textContent = '✅ Saved!'
+            // Refresh the available primary providers based on new keys
+            loadSavedKeys()
             setTimeout(() => {
               saveKeysBtn.textContent = '💾 Save API Keys'
             }, 2000)
@@ -2641,42 +2658,7 @@
     })
   }
 
-  async function updateSystemStats() {
-    if (!isElectron) return
-    try {
-      const stats = await ipc.invoke('get-system-stats')
-      if (!stats) return
-
-      const cpuVal = parseFloat(stats.cpu)
-      const ramVal = parseFloat(stats.memory.usedPercentage)
-
-      const cpuValueEl = document.getElementById('cpu-value')
-      const ramValueEl = document.getElementById('ram-value')
-      const ramUsedEl = document.getElementById('ram-used')
-
-      if (cpuValueEl) cpuValueEl.textContent = `${Math.round(cpuVal)}%`
-      if (ramValueEl) ramValueEl.textContent = `${Math.round(ramVal)}%`
-      if (ramUsedEl) ramUsedEl.textContent = `${stats.memory.total} / ${stats.memory.free} FREE`
-
-      if (cpuChart) {
-        cpuChart.data.datasets[0].data.shift()
-        cpuChart.data.datasets[0].data.push(cpuVal)
-        cpuChart.update()
-      }
-
-      if (ramChart) {
-        ramChart.data.datasets[0].data.shift()
-        ramChart.data.datasets[0].data.push(ramVal)
-        ramChart.update()
-      }
-    } catch (e) {
-      console.error('Failed to update system stats:', e)
-    }
-  }
-
   setTimeout(() => {
     initCharts()
-    setInterval(updateSystemStats, 2000)
-    updateSystemStats()
   }, 1000)
 })()
