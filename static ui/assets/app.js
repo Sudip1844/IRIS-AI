@@ -12,7 +12,7 @@
   const isElectron = !!ipc
 
   // --- State ---
-  let isPowerOn = false
+  window.isPowerOn = false
   let isDarkMode = localStorage.getItem('theme') === 'dark'
   let isSidebarExpanded = false
   let statsInterval = null
@@ -115,7 +115,7 @@
       if (tabId === 'apps' && isElectron) {
         updateProcesses()
       }
-      if (tabId === 'monitor' && isPowerOn) {
+      if (tabId === 'monitor' && window.isPowerOn) {
         updateStats()
       }
       if (tabId === 'settings' && isElectron) {
@@ -177,9 +177,9 @@
 
   // --- Power Button ---
   powerBtn.addEventListener('click', () => {
-    isPowerOn = !isPowerOn
+    window.isPowerOn = !window.isPowerOn
 
-    if (isPowerOn) {
+    if (window.isPowerOn) {
       powerBtn.className =
         'flex items-center gap-2 px-3 py-1.5 md:px-6 md:py-2.5 rounded-full font-bold text-[10px] md:text-sm transition-all active:scale-95 bg-rose-600 text-white shadow-lg shadow-rose-500/20'
       powerBtn.querySelector('span').textContent = 'STOP MJ'
@@ -217,16 +217,12 @@
   })
 
   // --- Stats (real data from Electron, or simulated) ---
-  function startStatsUpdates() {
-    updateStats()
-    updateProcesses()
-    statsInterval = setInterval(updateStats, 3000)
-    window.processInterval = setInterval(updateProcesses, 10000)
+  function startPollingStats() {
+    if (window.SystemMonitor) window.SystemMonitor.startPolling()
   }
 
-  function stopStatsUpdates() {
-    if (statsInterval) clearInterval(statsInterval)
-    if (window.processInterval) clearInterval(window.processInterval)
+  function stopPollingStats() {
+    if (window.SystemMonitor) window.SystemMonitor.stopPolling()
     if (cpuValue) {
       cpuValue.textContent = '0%'
       cpuBar.style.width = '0%'
@@ -247,254 +243,24 @@
   }
 
   async function updateStats() {
-    if (isElectron) {
-      try {
-        const info = await ipc.invoke('get-system-stats')
-        if (info) {
-          if (info.cpu !== undefined) {
-            const cpuVal = parseFloat(info.cpu)
-            const cpuStr = Math.round(cpuVal)
-            if (cpuValue) {
-              cpuValue.textContent = cpuStr + '%'
-              if (cpuBar) cpuBar.style.width = cpuStr + '%'
-            }
-            if (cpuChart) {
-              cpuChart.data.datasets[0].data.shift()
-              cpuChart.data.datasets[0].data.push(cpuVal)
-              cpuChart.update()
-            }
-          }
-          if (info.memory !== undefined) {
-            const ramVal = parseFloat(info.memory.usedPercentage)
-            if (ramValue) {
-              ramValue.textContent = Math.round(ramVal) + '%'
-              if (ramBar) ramBar.style.width = Math.round(ramVal) + '%'
-            }
-            if (ramUsed) ramUsed.textContent = info.memory.used + ' USED / ' + info.memory.free + ' FREE'
-            const ramTotal = document.getElementById('ram-total')
-            if (ramTotal) ramTotal.textContent = info.memory.total
-
-            if (ramChart) {
-              ramChart.data.datasets[0].data.shift()
-              ramChart.data.datasets[0].data.push(ramVal)
-              ramChart.update()
-            }
-
-            // Update System Health - Memory Warning
-            const healthMemory = document.getElementById('health-memory')
-            if (healthMemory) {
-              const pct = parseFloat(info.memory.usedPercentage)
-              if (pct > 85) {
-                healthMemory.textContent = `⚠️ Memory usage is critical at ${pct}%! Close unused apps to free up resources.`
-              } else if (pct > 70) {
-                healthMemory.textContent = `Memory usage is at ${pct}%. Consider closing unused background tasks for better performance.`
-              } else {
-                healthMemory.textContent = `Memory usage is healthy at ${pct}%. System is running smoothly.`
-              }
-            }
-          }
-
-          // Update OS Info in health panel
-          if (info.os) {
-            const healthOs = document.getElementById('health-os')
-            if (healthOs) healthOs.textContent = info.os.type || 'Windows'
-          }
-
-          // Update Battery
-          if (navigator.getBattery) {
-            try {
-              const battery = await navigator.getBattery()
-              const batteryValue = document.getElementById('battery-value')
-              const batteryBar = document.getElementById('battery-bar')
-              if (batteryValue) batteryValue.textContent = Math.round(battery.level * 100) + '%'
-              if (batteryBar) batteryBar.style.width = Math.round(battery.level * 100) + '%'
-            } catch (battErr) { /* no battery on desktop */ }
-          }
-        }
-
-        // Get Drives
-        const drives = await ipc.invoke('get-drives')
-        if (drives && drives.length > 0) {
-          const cDrive = Array.isArray(drives)
-            ? drives.find((d) => d.Name === 'C') || drives[0]
-            : drives
-          if (cDrive && cDrive.FreeGB && cDrive.TotalGB) {
-            const usedGB = cDrive.TotalGB - cDrive.FreeGB
-            const diskPct = Math.round((usedGB / cDrive.TotalGB) * 100)
-            const diskValue = document.getElementById('disk-value')
-            const diskBar = document.getElementById('disk-bar')
-            const diskFree = document.getElementById('disk-free')
-            const diskTotal = document.getElementById('disk-total')
-            if (diskValue) diskValue.textContent = diskPct + '%'
-            if (diskBar) diskBar.style.width = diskPct + '%'
-            if (diskFree) diskFree.textContent = cDrive.FreeGB + 'GB Free'
-            if (diskTotal) diskTotal.textContent = cDrive.TotalGB + 'GB Total'
-          }
-        }
-
-        // Get Security Status for health panel
-        try {
-          const secStatus = await ipc.invoke('get-security-status')
-          const healthSecurity = document.getElementById('health-security')
-          if (healthSecurity && secStatus) {
-            healthSecurity.textContent = secStatus.antivirus === 'ACTIVE' ? 'OPTIMAL' : 'WARNING'
-            healthSecurity.className = 'text-[10px] font-bold ' + (secStatus.antivirus === 'ACTIVE' ? 'text-emerald-500' : 'text-amber-500')
-          }
-        } catch (secErr) {
-          const healthSecurity = document.getElementById('health-security')
-          if (healthSecurity) healthSecurity.textContent = 'ACTIVE'
-        }
-
-        return
-      } catch (e) {
-        console.error('Stats error:', e)
-      }
-    }
-    // Non-Electron fallback (demo mode)
-    if (cpuValue) cpuValue.textContent = '--'
-    if (ramValue) ramValue.textContent = '--'
-    if (ramUsed) ramUsed.textContent = '--'
+    if (window.SystemMonitor) await window.SystemMonitor.updateNow()
   }
 
-  // ========= CHAT → ELECTRON IPC BRIDGE =========
-  if (chatInput) {
-    chatInput.addEventListener('input', () => {
-      sendBtn.disabled = !chatInput.value.trim() && !previewImg.src
-    })
-    chatInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        sendMessage()
-      }
-    })
+  // ========= CHAT → Delegated to chat-ui.js =========
+  // All chat input, sendMessage, appendMessage, history, and image upload
+  // logic is now handled by the ChatUI module (window.ChatUI).
+  // Thin delegates for backward-compatibility with other parts of app.js:
+  function appendMessage(role, text) {
+    if (window.ChatUI) window.ChatUI.appendMessage(role, text)
   }
-  if (sendBtn) sendBtn.addEventListener('click', sendMessage)
-
-  async function sendMessage() {
-    const text = chatInput.value.trim()
-    if (!text) return
-
-    if (!isPowerOn) {
-      appendMessage('error', 'MJ is currently OFF. Please start the core first.')
-      chatInput.value = ''
-      sendBtn.disabled = true
-      return
-    }
-
-    appendMessage('user', text)
-    chatInput.value = ''
-    sendBtn.disabled = true
-
-    // Show thinking indicator
-    const thinkingEl = document.createElement('div')
-    thinkingEl.className = 'flex items-center gap-2 text-rose-500 px-4 thinking-indicator'
-    thinkingEl.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="animate-bounce"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg><span class="text-xs font-medium animate-pulse">MJ is thinking...</span>'
-    chatMessages.appendChild(thinkingEl)
-    chatMessages.scrollTop = chatMessages.scrollHeight
-
-    let replyText = 'No response.'
-
-    const lowerText = text.toLowerCase()
-    if (isElectron && lowerText.startsWith('play ') && lowerText.includes(' on spotify')) {
-      const songName = lowerText.replace('play ', '').replace(' on spotify', '').trim()
-      try {
-        const result = await ipc.invoke('play-spotify-music', songName)
-        thinkingEl.remove()
-        appendMessage('mj', result)
-        speakAndAnimate(result)
-        saveChatHistory(text, result)
-      } catch (err) {
-        thinkingEl.remove()
-        const errTxt = 'Backend error: ' + err.message
-        appendMessage('error', errTxt)
-      }
-      return
-    }
-
-    function isChatError(message) {
-      return typeof message === 'string' && /(^ERROR:|\bError:|\bFailed\b|\bfailed\b)/.test(message)
-    }
-
-    if (isElectron) {
-      try {
-        const result = await ipc.invoke('chat-with-ai', text)
-        replyText = result || 'No response.'
-        thinkingEl.remove()
-        if (isChatError(replyText)) {
-          appendMessage('error', replyText)
-        } else {
-          appendMessage('mj', replyText)
-          speakAndAnimate(replyText)
-        }
-      } catch (err) {
-        thinkingEl.remove()
-        replyText = 'Backend error: ' + (err?.message || String(err))
-        appendMessage('error', replyText)
-      }
-    } else {
-      await new Promise((r) => setTimeout(r, 1500))
-      thinkingEl.remove()
-      replyText =
-        'I received: "' + text + '". Connect to Electron backend for full AI functionality.'
-      appendMessage('mj', replyText)
-      speakAndAnimate(replyText)
-    }
-
-    saveChatHistory(text, replyText)
+  function speakAndAnimate(text) {
+    if (window.ChatUI) window.ChatUI.speakAndAnimate(text)
   }
-
-  function saveChatHistory(userText, aiReply) {
-    let history = []
-    try {
-      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]')
-    } catch (e) {}
-    history.push({ user: userText, ai: aiReply, time: new Date().toISOString() })
-    if (history.length > 50) history.shift() // Keep last 50
-    localStorage.setItem('mj_chat_history', JSON.stringify(history))
-    renderChatHistory()
+  function escapeHtml(str) {
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
   }
-
-  function renderChatHistory() {
-    const list = document.getElementById('chat-history-list')
-    if (!list) return
-    let history = []
-    try {
-      history = JSON.parse(localStorage.getItem('mj_chat_history') || '[]')
-    } catch (e) {}
-
-    if (history.length === 0) {
-      list.innerHTML =
-        '<button class="text-left text-xs p-2 rounded-lg hover:bg-accent truncate w-full text-muted-foreground opacity-50">No history available</button>'
-      return
-    }
-
-    list.innerHTML = history
-      .slice()
-      .reverse()
-      .map(
-        (h) => `
-      <button class="text-left text-xs p-2 rounded-lg hover:bg-accent truncate w-full text-muted-foreground transition-colors group relative" title="${escapeHtml(h.user)}">
-        <span class="font-semibold text-foreground block truncate">${escapeHtml(h.user)}</span>
-        <span class="opacity-50 text-[10px] truncate block">${escapeHtml(h.ai).substring(0, 40)}...</span>
-      </button>
-    `
-      )
-      .join('')
-  }
-
-  const clearChatHistoryBtn = document.getElementById('clear-chat-history')
-  if (clearChatHistoryBtn) {
-    clearChatHistoryBtn.addEventListener('click', () => {
-      if (confirm('Clear all chat history?')) {
-        localStorage.removeItem('mj_chat_history')
-        renderChatHistory()
-      }
-    })
-  }
-
-  // Initial load
-  renderChatHistory()
 
   let currentVisualizerType = 'pulse'
 
@@ -538,7 +304,7 @@
   }
 
   function toggleMicrophone() {
-    if (!isPowerOn) {
+    if (!window.isPowerOn) {
       if (typeof showToast !== 'undefined') showToast('Please start MJ first.', 'warning');
       return;
     }
@@ -642,7 +408,7 @@
       const vizPreview = document.getElementById('viz-preview');
       const root = vizPreview?.firstElementChild;
       
-      if (!root || !isPowerOn) {
+      if (!root || !window.isPowerOn) {
         if (root) resetVisualizerStyles(root);
         return;
       }
@@ -755,148 +521,9 @@
     }
   }
 
-  function speakAndAnimate(text) {
-    if (!window.speechSynthesis) return
-
-    // Clean text from markdown for speech
-    const cleanText = text.replace(/[*_#]/g, '').replace(/```[\s\S]*?```/g, 'Code block omitted.')
-
-    const utterance = new SpeechSynthesisUtterance(cleanText)
-    utterance.rate = 1.0
-    utterance.pitch = 1.0
-
-    // Attempt to pick a good voice
-    const voices = window.speechSynthesis.getVoices()
-    const mjVoice =
-      voices.find(
-        (v) =>
-          v.name.includes('Female') ||
-          v.name.includes('Zira') ||
-          v.name.includes('Google UK English Female')
-      ) || voices[0]
-    if (mjVoice) utterance.voice = mjVoice
-
-    window.speechSynthesis.cancel() // Stop current speech
-    window.speechSynthesis.speak(utterance)
-  }
-
-  function appendMessage(role, text) {
-    const wrapper = document.createElement('div')
-    wrapper.className = 'flex flex-col gap-2 ' + (role === 'user' ? 'items-end' : 'items-start')
-
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    let headerHTML = ''
-    let bubbleClass = ''
-
-    if (role === 'user') {
-      headerHTML =
-        '<span class="text-[10px] opacity-50">' +
-        time +
-        '</span><span class="text-xs font-bold text-blue-400">You</span>'
-      bubbleClass = 'bg-blue-600 text-white rounded-tr-none shadow-blue-500/10'
-    } else if (role === 'mj') {
-      headerHTML =
-        '<span class="text-xs font-bold text-rose-500">MJ</span><span class="text-[10px] opacity-50">' +
-        time +
-        '</span>'
-      bubbleClass = 'bg-card text-foreground border border-border rounded-tl-none'
-    } else if (role === 'error') {
-      bubbleClass = 'bg-rose-500/10 text-rose-600 border border-rose-500/20 w-full text-center'
-    } else {
-      bubbleClass =
-        'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 w-full text-center italic'
-    }
-
-    const parsedContent =
-      typeof marked !== 'undefined' ? marked.parse(text) : '<p>' + escapeHtml(text) + '</p>'
-
-    wrapper.innerHTML =
-      '<div class="flex items-center gap-2 px-2">' +
-      headerHTML +
-      '</div>' +
-      '<div class="relative group max-w-[90%] md:max-w-[85%] rounded-2xl p-3 md:p-4 text-xs md:text-sm leading-relaxed shadow-sm ' +
-      bubbleClass +
-      '" style="user-select: text; -webkit-user-select: text;">' +
-      '<div class="prose prose-sm max-w-none">' +
-      parsedContent +
-      '</div>' +
-      '<button class="copy-btn absolute top-2 right-2 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" title="Copy Message">' +
-      '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>' +
-      '</button>' +
-      '</div>'
-
-    const copyBtn = wrapper.querySelector('.copy-btn')
-    if (copyBtn) {
-      copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(text).then(() => {
-          copyBtn.innerHTML = '<svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-          setTimeout(() => {
-            copyBtn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>'
-          }, 2000)
-        }).catch(err => console.error('Copy failed:', err))
-      })
-    }
-
-    chatMessages.appendChild(wrapper)
-    chatMessages.scrollTop = chatMessages.scrollHeight
-  }
-
-  function escapeHtml(str) {
-    const div = document.createElement('div')
-    div.textContent = str
-    return div.innerHTML
-  }
-
-  // --- Image Upload ---
-  if (attachBtn) attachBtn.addEventListener('click', () => fileInput.click())
-  if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0]
-      if (file) handleImageFile(file)
-    })
-  }
-
-  if (chatInput) {
-    chatInput.addEventListener('dragover', (e) => {
-      e.preventDefault()
-      chatInput.classList.add('border-primary', 'bg-primary/5')
-    })
-    chatInput.addEventListener('dragleave', (e) => {
-      e.preventDefault()
-      chatInput.classList.remove('border-primary', 'bg-primary/5')
-    })
-    chatInput.addEventListener('drop', (e) => {
-      e.preventDefault()
-      chatInput.classList.remove('border-primary', 'bg-primary/5')
-      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        handleImageFile(e.dataTransfer.files[0])
-      }
-    })
-  }
-
-  function handleImageFile(file) {
-    if (!file.type.startsWith('image/')) {
-      showToast('Please upload an image file.', 'error')
-      return
-    }
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      previewImg.src = reader.result
-      imagePreview.style.display = 'flex'
-      sendBtn.disabled = false
-    }
-    reader.readAsDataURL(file)
-  }
-
-  if (removeImage) {
-    removeImage.addEventListener('click', () => {
-      previewImg.src = ''
-      imagePreview.style.display = 'none'
-      fileInput.value = ''
-      sendBtn.disabled = !chatInput.value.trim()
-    })
-  }
-
+  // --- speakAndAnimate, appendMessage, escapeHtml, and Image Upload ---
+  // All moved to chat-ui.js. Delegates already defined above.
+  
   // --- App Search ---
   if (appSearch) {
     appSearch.addEventListener('input', () => {
@@ -1161,75 +788,7 @@
 
   // --- Dynamic Processes ---
   async function updateProcesses() {
-    if (!isElectron) return
-
-    // 1) Populate Apps grid with installed apps
-    try {
-      const apps = await ipc.invoke('get-installed-apps')
-      const appsGrid = document.getElementById('apps-grid')
-      if (apps && apps.length > 0 && appsGrid) {
-        const stringToColor = (str) => {
-          let hash = 0
-          for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
-          const hue = Math.abs(hash) % 360
-          return `hsl(${hue}, 70%, 60%)`
-        }
-
-        appsGrid.innerHTML = apps
-          .map((a) => {
-            const letter = (a.name || 'A').charAt(0).toUpperCase()
-            const color = stringToColor(a.name)
-            return `
-                    <div class="app-item p-3 md:p-4 rounded-xl md:rounded-2xl bg-card border border-border flex items-center justify-between hover:border-primary/30 transition-colors group" data-name="${escapeHtml(a.name)}">
-                        <div class="flex items-center gap-2 md:gap-3 min-w-0">
-                            ${a.icon ? `<img src="${a.icon}" class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl object-contain shadow-sm" />` : `
-                            <div class="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center shrink-0 text-white shadow-sm font-bold text-lg md:text-xl" style="background-color: ${color}">
-                                ${letter}
-                            </div>`}
-                            <span class="font-bold text-xs md:text-sm truncate">${escapeHtml(a.name)}</span>
-                        </div>
-                        <button onclick="this.dataset.allowed = this.dataset.allowed === 'true' ? 'false' : 'true'; this.textContent = this.dataset.allowed === 'true' ? 'Allowed' : 'Denied'; this.className = 'app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all ' + (this.dataset.allowed === 'true' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500')" 
-                                class="app-perm-btn px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold uppercase tracking-widest transition-all bg-emerald-500/10 text-emerald-500" 
-                                data-allowed="true">
-                            Allowed
-                        </button>
-                    </div>
-                `
-          })
-          .join('')
-      }
-    } catch (err) {
-      console.error('Failed to get installed apps:', err)
-    }
-
-    // 2) Populate Monitor → Active Processes with REAL running processes
-    try {
-      const procs = await ipc.invoke('get-running-processes')
-      const processContainer = document.getElementById('process-list-container')
-      if (processContainer && procs && procs.length > 0) {
-        processContainer.innerHTML = `
-                    <div class="grid grid-cols-4 text-[8px] md:text-[10px] uppercase tracking-widest font-bold opacity-30 px-2 mb-2 sticky top-0 bg-card z-10 pb-2">
-                        <span>Process</span><span>PID</span><span>CPU (sec)</span><span>Memory</span>
-                    </div>
-                    <div style="max-height: 400px; overflow-y: auto; scrollbar-width: thin;" class="space-y-0.5 pr-1">
-                        ${procs
-                          .map(
-                            (p) => `
-                        <div class="grid grid-cols-4 py-1.5 md:py-2 px-2 rounded-lg transition-colors text-[10px] md:text-sm hover:bg-accent items-center">
-                            <span class="font-bold truncate text-xs">${escapeHtml(p.Name || '')}</span>
-                            <span class="opacity-50 text-[10px]">${p.Id || ''}</span>
-                            <span class="text-blue-500 font-medium text-[10px]">${p.CpuSec || 0}s</span>
-                            <span class="truncate font-medium text-[10px] ${(p.MemMB || 0) > 500 ? 'text-rose-500' : (p.MemMB || 0) > 200 ? 'text-amber-500' : 'text-emerald-500'}">${p.MemMB || 0} MB</span>
-                        </div>
-                        `
-                          )
-                          .join('')}
-                    </div>
-                `
-      }
-    } catch (err) {
-      console.error('Failed to get running processes:', err)
-    }
+    // Delegated to system-monitor.js
   }
 
   // --- Log Electron status ---
@@ -2601,64 +2160,90 @@
   let cpuChart, ramChart
 
   function initCharts() {
-    const cpuCtx = document.getElementById('cpu-chart')?.getContext('2d')
-    const ramCtx = document.getElementById('ram-chart')?.getContext('2d')
-
-    if (!cpuCtx || !ramCtx || typeof Chart === 'undefined') return
-
-    Chart.defaults.color = 'rgba(255, 255, 255, 0.5)'
-    Chart.defaults.font.family = 'Inter, sans-serif'
-
-    const commonOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: {
-        x: { display: false },
-        y: { min: 0, max: 100, display: false }
-      },
-      animation: { duration: 0 },
-      elements: { point: { radius: 0 } }
-    }
-
-    cpuChart = new Chart(cpuCtx, {
-      type: 'line',
-      data: {
-        labels: Array(20).fill(''),
-        datasets: [
-          {
-            data: Array(20).fill(0),
-            borderColor: '#3b82f6',
-            borderWidth: 2,
-            tension: 0.4,
-            fill: true,
-            backgroundColor: 'rgba(59, 130, 246, 0.1)'
-          }
-        ]
-      },
-      options: commonOptions
-    })
-
-    ramChart = new Chart(ramCtx, {
-      type: 'line',
-      data: {
-        labels: Array(20).fill(''),
-        datasets: [
-          {
-            data: Array(20).fill(0),
-            borderColor: '#f43f5e',
-            borderWidth: 2,
-            tension: 0.4,
-            fill: true,
-            backgroundColor: 'rgba(244, 63, 94, 0.1)'
-          }
-        ]
-      },
-      options: commonOptions
-    })
+    if (window.SystemMonitor) window.SystemMonitor.init()
   }
 
   setTimeout(() => {
     initCharts()
   }, 1000)
+
+  document.getElementById('btn-lock-system')?.addEventListener('click', () => {
+    if (isElectron) ipc.send('trigger-lockdown')
+  })
+  // --- Lock Screen Logic ---
+  const lockOverlay = document.getElementById('lock-screen-overlay')
+  const lockPinInput = document.getElementById('lock-pin-input')
+  const lockUnlockBtn = document.getElementById('lock-unlock-btn')
+  const lockBiometricBtn = document.getElementById('lock-biometric-btn')
+  const lockErrorMsg = document.getElementById('lock-error-msg')
+
+  if (isElectron && lockOverlay && lockPinInput && lockUnlockBtn && lockErrorMsg) {
+    ipc.on('lock-screen-show', () => {
+      lockOverlay.classList.remove('hidden')
+      lockPinInput.value = ''
+      lockPinInput.focus()
+      lockErrorMsg.classList.add('opacity-0')
+      
+      // Reset biometric btn state if it was loading
+      if (lockBiometricBtn) {
+        lockBiometricBtn.disabled = false
+        lockBiometricBtn.innerHTML = '<i class="ri-user-smile-line text-lg"></i> Face ID'
+      }
+    })
+
+    ipc.on('lock-screen-hide', () => {
+      lockOverlay.classList.add('hidden')
+    })
+
+    const tryUnlock = async () => {
+      const pin = lockPinInput.value
+      if (!pin) return
+      lockUnlockBtn.disabled = true
+      lockUnlockBtn.innerHTML = '<i class="ri-loader-4-line animate-spin"></i>'
+      
+      const res = await ipc.invoke('verify-pin', pin)
+      if (res && res.success) {
+        lockOverlay.classList.add('hidden')
+        lockErrorMsg.classList.add('opacity-0')
+      } else {
+        lockErrorMsg.classList.remove('opacity-0')
+        lockErrorMsg.textContent = 'Incorrect PIN'
+        lockPinInput.value = ''
+        lockPinInput.focus()
+      }
+      lockUnlockBtn.disabled = false
+      lockUnlockBtn.innerHTML = 'Unlock System'
+    }
+    
+    const tryBiometricUnlock = async () => {
+      if (!lockBiometricBtn) return
+      lockBiometricBtn.disabled = true
+      lockBiometricBtn.innerHTML = '<i class="ri-loader-4-line animate-spin"></i> Scanning...'
+      lockErrorMsg.classList.add('opacity-0')
+      
+      try {
+        const res = await ipc.invoke('biometric-test')
+        if (res) {
+          // Success! Unlock the system explicitly
+          await ipc.invoke('verify-pin', 'ADMIN_BYPASS_NO_PIN') // We will update backend to accept biometric override
+        } else {
+          lockErrorMsg.textContent = 'Face not recognized.'
+          lockErrorMsg.classList.remove('opacity-0')
+        }
+      } catch (err) {
+        lockErrorMsg.textContent = 'Camera error.'
+        lockErrorMsg.classList.remove('opacity-0')
+      }
+      
+      lockBiometricBtn.disabled = false
+      lockBiometricBtn.innerHTML = '<i class="ri-user-smile-line text-lg"></i> Face ID'
+    }
+
+    lockUnlockBtn.addEventListener('click', tryUnlock)
+    if (lockBiometricBtn) lockBiometricBtn.addEventListener('click', tryBiometricUnlock)
+    lockPinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') tryUnlock()
+    })
+  }
+
 })()

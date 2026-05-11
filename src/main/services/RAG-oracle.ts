@@ -3,7 +3,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
 import { GoogleGenAI } from '@google/genai'
-import Groq from 'groq-sdk'
+
 
 const getStateDir = () => path.join(app.getPath('userData'), 'iris_scan_states')
 

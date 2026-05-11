@@ -8,7 +8,8 @@ import OpenAI from 'openai'
 export async function chatWithOpenAI(
   apiKey: string,
   text: string,
-  model: string = 'gpt-4'
+  model: string = 'gpt-4o',
+  images?: string[]
 ): Promise<string> {
   if (!apiKey) {
     throw new Error('OpenAI API key not provided')
@@ -16,6 +17,17 @@ export async function chatWithOpenAI(
 
   try {
     const client = new OpenAI({ apiKey })
+
+    const userContent: any[] = [{ type: 'text', text: text }]
+    if (images && images.length > 0) {
+      for (const img of images) {
+        const imgData = img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`
+        userContent.push({ type: 'image_url', image_url: { url: imgData } })
+      }
+      if (model.startsWith('gpt-3') || model === 'gpt-4') {
+        model = 'gpt-4o' // Auto-upgrade model for vision support if needed
+      }
+    }
 
     const response = await client.chat.completions.create({
       model: model,
@@ -27,7 +39,7 @@ export async function chatWithOpenAI(
         },
         {
           role: 'user',
-          content: text
+          content: userContent
         }
       ],
       temperature: 0.7,

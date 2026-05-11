@@ -8,30 +8,20 @@ export default function registerIrisCoder({ ipcMain, app }: { ipcMain: IpcMain; 
   const PROJECTS_DIR = path.resolve(app.getPath('userData'), 'Projects')
   if (!fs.existsSync(PROJECTS_DIR)) fs.mkdirSync(PROJECTS_DIR, { recursive: true })
 
-  ipcMain.handle('start-live-coding', async (event, { prompt, filename, geminiKey }) => {
+  ipcMain.handle('start-live-coding', async (event, { prompt, filename }) => {
     try {
       const filePath = path.join(PROJECTS_DIR, filename)
 
-      fs.writeFileSync(filePath, '// Boss, connection established. Waiting for AI stream...\n')
+      fs.writeFileSync(filePath, '// Boss, connection established. Generating code with Primary AI...\n')
 
-      if (!geminiKey || geminiKey.trim() === '') {
-        throw new Error('Missing Gemini API Key. Please configure it in the Command Center Vault.')
-      }
-
-      const ai = new GoogleGenAI({ apiKey: geminiKey })
-
-      const response = await ai.models.generateContentStream({
-        model: 'gemini-3-flash-preview',
-        contents: `You are an elite developer. Write the code for: "${prompt}". Output ONLY the raw code for the file ${filename}. Do NOT wrap it in markdown blockquotes.`
+      const { handleChatRequest } = require('./chat-handler')
+      
+      const fullCode = await handleChatRequest({
+        text: `You are an elite developer. Write the code for: "${prompt}". Output ONLY the raw code for the file ${filename}. Do NOT wrap it in markdown blockquotes.`,
+        provider: 'auto'
       })
 
-      let fullCode = ''
-      for await (const chunk of response) {
-        if (chunk.text) {
-          fullCode += chunk.text
-          event.sender.send('live-code-chunk', chunk.text)
-        }
-      }
+      event.sender.send('live-code-chunk', fullCode)
 
       fs.writeFileSync(filePath, fullCode)
       return { success: true, filePath }

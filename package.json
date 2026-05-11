@@ -45,6 +45,7 @@
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.3",
     "face-api.js": "^0.22.2",
+    "@vladmandic/face-api": "^1.7.12",
     "framer-motion": "^12.35.2",
     "glob": "^13.0.1",
     "googleapis": "^171.4.0",

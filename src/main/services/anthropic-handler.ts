@@ -9,7 +9,8 @@ import Anthropic from '@anthropic-ai/sdk'
 export async function chatWithAnthropic(
   apiKey: string,
   text: string,
-  model: string = 'claude-3-sonnet-20240229'
+  model: string = 'claude-3-5-sonnet-latest',
+  images?: string[]
 ): Promise<string> {
   if (!apiKey) {
     throw new Error('Anthropic API key not provided')
@@ -17,6 +18,22 @@ export async function chatWithAnthropic(
 
   try {
     const client = new Anthropic({ apiKey })
+
+    const userContent: any[] = []
+    if (images && images.length > 0) {
+      for (const img of images) {
+        const base64Data = img.replace(/^data:image\/\w+;base64,/, '')
+        userContent.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/jpeg',
+            data: base64Data
+          }
+        })
+      }
+    }
+    userContent.push({ type: 'text', text: text })
 
     const response = await client.messages.create({
       model: model,
@@ -26,7 +43,7 @@ export async function chatWithAnthropic(
       messages: [
         {
           role: 'user',
-          content: text
+          content: userContent
         }
       ]
     })

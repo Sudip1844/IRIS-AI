@@ -14,6 +14,19 @@ import { chatWithHuggingFace, streamChatWithHuggingFace } from './huggingface-ha
 import { chatWithTavily, streamChatWithTavily } from './tavily-handler'
 import { loadProviderConfig, ProviderConfig, ProviderStore } from './providers/provider-registry'
 import { extractErrorMessage, logError, providerError, retryAsync } from './error-utils'
+import {
+  createSession,
+  getActiveSession,
+  getAllSessions,
+  setActiveSession,
+  deleteSession,
+  addMessage,
+  getRecentMessages,
+  getContextForAI,
+  clearHistory,
+  renameSession,
+  ChatSession
+} from './chat-history'
 
 export type SupportedAiProvider =
   ProviderStore extends Record<infer K, any> ? K | 'auto' | 'default' : string
@@ -21,6 +34,7 @@ export type ChatRequestOptions =
   | string
   | {
       text: string
+      images?: string[]
       provider?: SupportedAiProvider
       model?: string
     }
@@ -28,6 +42,7 @@ export type ProviderKeys = Partial<Record<Exclude<keyof ProviderStore, symbol>, 
 export function parseChatRequest(options: ChatRequestOptions) {
   return {
     text: typeof options === 'string' ? options : options.text,
+    images: typeof options === 'string' ? undefined : options.images,
     provider:
       typeof options === 'string' ? 'auto' : ((options.provider ?? 'auto') as SupportedAiProvider),
     model: typeof options === 'string' ? undefined : options.model
@@ -85,40 +100,25 @@ function getSecureVaultPath() {
     }
   }
 
-  function loadFallbackKeys(): ProviderKeys {
-    const keys: ProviderKeys = {}
-    try {
-      if (!fs.existsSync(secureConfigPath)) return keys
-      const data = JSON.parse(fs.readFileSync(secureConfigPath, 'utf8'))
 
-      if (safeStorage.isEncryptionAvailable()) {
-        if (data.groq) keys.groq = safeStorage.decryptString(Buffer.from(data.groq, 'base64'))
-        if (data.gemini) keys.gemini = safeStorage.decryptString(Buffer.from(data.gemini, 'base64'))
-        if (data.openai) keys.openai = safeStorage.decryptString(Buffer.from(data.openai, 'base64'))
-        if (data.anthropic)
-          keys.anthropic = safeStorage.decryptString(Buffer.from(data.anthropic, 'base64'))
-      } else {
-        if (data.groq) keys.groq = Buffer.from(data.groq, 'base64').toString('utf8')
-        if (data.gemini) keys.gemini = Buffer.from(data.gemini, 'base64').toString('utf8')
-        if (data.openai) keys.openai = Buffer.from(data.openai, 'base64').toString('utf8')
-        if (data.anthropic) keys.anthropic = Buffer.from(data.anthropic, 'base64').toString('utf8')
-      }
-    } catch (e: unknown) {
-      logError('SecureKeyLoad', e)
-    }
-    return keys
-  }
 
   // Core logic extracted for internal use
 export async function handleChatRequest(options: ChatRequestOptions): Promise<string> {
-    const { text, provider, model } = parseChatRequest(options)
+    const { text, images, provider, model } = parseChatRequest(options)
     const providerStore = loadProviderConfig()
     let keys = loadKeysFromProviderStore(providerStore)
 
-    // Fallback to legacy vault if provider config doesn't contain keys
-    if (Object.values(keys).every((value) => !value)) {
-      keys = { ...keys, ...loadFallbackKeys() }
-    }
+    // Save user message to history
+    addMessage('user', text, provider, model)
+
+    // Get conversation context from history
+    const context = getContextForAI(undefined, 10)
+    const conversationContext = context.conversation
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n')
+    const fullText = conversationContext ? `${conversationContext}\nUser: ${text}` : text
+
+
 
     const resolveModel = (providerName: keyof ProviderStore, fallbackModel: string): string => {
       return model?.trim() || providerStore[providerName]?.model?.trim() || fallbackModel
@@ -128,15 +128,16 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
       return providerStore[providerName]?.endpoint?.trim() || undefined
     }
 
-    // Route to appropriate provider
     if (provider === 'openai' && keys.openai) {
       const openaiKey = keys.openai
       try {
-        return await retryAsync(
-          () => chatWithOpenAI(openaiKey, text, resolveModel('openai', 'gpt-4')),
+        const response = await retryAsync(
+          () => chatWithOpenAI(openaiKey, text, resolveModel('openai', 'gpt-4o'), images),
           2,
           500
         )
+        addMessage('assistant', response, 'openai', resolveModel('openai', 'gpt-4o'))
+        return response
       } catch (err: unknown) {
         return providerError('OpenAI', err)
       }
@@ -145,16 +146,19 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
     if (provider === 'anthropic' && keys.anthropic) {
       const anthropicKey = keys.anthropic
       try {
-        return await retryAsync(
+        const response = await retryAsync(
           () =>
             chatWithAnthropic(
               anthropicKey,
               text,
-              resolveModel('anthropic', 'claude-3-sonnet-20240229')
+              resolveModel('anthropic', 'claude-3-5-sonnet-latest'),
+              images
             ),
           2,
           500
         )
+        addMessage('assistant', response, 'anthropic', resolveModel('anthropic', 'claude-3-5-sonnet-latest'))
+        return response
       } catch (err: unknown) {
         return providerError('Anthropic', err)
       }
@@ -166,7 +170,7 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
       try {
         const providerName = provider as keyof ProviderStore
         const config = PROVIDER_CONFIGS[providerName]
-        return await retryAsync(
+        const response = await retryAsync(
           () =>
             chatWithOpenAICompatible(
               {
@@ -179,6 +183,8 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
           2,
           500
         )
+        addMessage('assistant', response, providerName, resolveModel(providerName, config.defaultModel))
+        return response
       } catch (err: unknown) {
         return providerError(provider, err)
       }
@@ -187,11 +193,13 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
     if (provider === 'huggingface' && keys.huggingface) {
       const huggingfaceKey = keys.huggingface
       try {
-        return await retryAsync(
+        const response = await retryAsync(
           () => chatWithHuggingFace(huggingfaceKey, text, resolveModel('huggingface', 'gpt2')),
           2,
           500
         )
+        addMessage('assistant', response, 'huggingface', resolveModel('huggingface', 'gpt2'))
+        return response
       } catch (err: any) {
         return providerError('Hugging Face', err)
       }
@@ -200,7 +208,9 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
     if (provider === 'tavily' && keys.tavily) {
       const tavilyKey = keys.tavily
       try {
-        return await retryAsync(() => chatWithTavily(tavilyKey, text), 2, 500)
+        const response = await retryAsync(() => chatWithTavily(tavilyKey, text), 2, 500)
+        addMessage('assistant', response, 'tavily', 'default')
+        return response
       } catch (err: any) {
         return providerError('Tavily', err)
       }
@@ -219,17 +229,34 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
           try {
               if (pName === 'gemini') {
                   const ai = new GoogleGenAI({ apiKey: keys.gemini! });
+                  let contents: any = `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`;
+                  
+                  if (images && images.length > 0) {
+                      const parts: any[] = [];
+                      for (const img of images) {
+                          const base64Data = img.replace(/^data:image\/\w+;base64,/, '');
+                          parts.push({
+                              inlineData: {
+                                  data: base64Data,
+                                  mimeType: 'image/jpeg'
+                              }
+                          });
+                      }
+                      parts.push({ text: contents });
+                      contents = parts;
+                  }
+
                   const response = await ai.models.generateContent({
                       model: pModel || 'gemini-2.5-flash',
-                      contents: `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`
+                      contents: contents
                   });
                   return response.text || '';
               }
               if (pName === 'openai') {
-                  return await retryAsync(() => chatWithOpenAI(keys.openai!, text, pModel || 'gpt-4o'), 2, 500);
+                  return await retryAsync(() => chatWithOpenAI(keys.openai!, text, pModel || 'gpt-4o', images), 2, 500);
               }
               if (pName === 'anthropic') {
-                  return await retryAsync(() => chatWithAnthropic(keys.anthropic!, text, pModel || 'claude-3-5-sonnet-20241022'), 2, 500);
+                  return await retryAsync(() => chatWithAnthropic(keys.anthropic!, text, pModel || 'claude-3-5-sonnet-latest', images), 2, 500);
               }
               if (pName === 'groq') {
                   const groq = new Groq({ apiKey: keys.groq! });
@@ -262,7 +289,10 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
       // 1. Try Primary Agent
       if (primaryProvider) {
           const res = await tryProvider(primaryProvider, primaryModel);
-          if (res) return res;
+          if (res) {
+            addMessage('assistant', res, primaryProvider, primaryModel)
+            return res;
+          }
       }
 
       // 2. Try Fallbacks
@@ -270,13 +300,20 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
       for (const p of fallbackList) {
           if (p === primaryProvider) continue; // Already tried
           const res = await tryProvider(p);
-          if (res) return res;
+          if (res) {
+            addMessage('assistant', res, p, undefined)
+            return res;
+          }
       }
 
-      return `ERROR: All configured providers failed. ${fallbackErrors.join(' | ')}`;
+      const errorMsg = `ERROR: All configured providers failed. ${fallbackErrors.join(' | ')}`;
+      addMessage('assistant', errorMsg, 'system', undefined)
+      return errorMsg;
     }
 
-    return 'ERROR: No AI Model configured. Please save API keys in Settings (Gemini, OpenAI, Anthropic, or Groq).'
+    const errorMsg = 'ERROR: No AI Model configured. Please save API keys in Settings (Gemini, OpenAI, Anthropic, or Groq).'
+    addMessage('assistant', errorMsg, 'system', undefined)
+    return errorMsg
   }
 
 export default function registerChatHandler() {
@@ -292,9 +329,7 @@ export default function registerChatHandler() {
     const providerStore = loadProviderConfig()
     let keys = loadKeysFromProviderStore(providerStore)
 
-    if (Object.values(keys).every((value) => !value)) {
-      keys = { ...keys, ...loadFallbackKeys() }
-    }
+
 
     const compatibleProviders = ['deepseek', 'mistral', 'openrouter', 'xai'] as const
     const resolveModel = (providerName: keyof ProviderStore, fallbackModel: string): string => {
@@ -401,6 +436,70 @@ export default function registerChatHandler() {
     }
 
     event.sender.send('chat-stream-end', 'Stream completed')
+  })
+
+  // Chat History IPC Handlers
+  ipcMain.handle('chat-history-get-sessions', async () => {
+    try {
+      return getAllSessions()
+    } catch (err) {
+      console.error('[MJ] Failed to get sessions:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('chat-history-get-messages', async (_, sessionId?: string) => {
+    try {
+      return getRecentMessages(50, sessionId)
+    } catch (err) {
+      console.error('[MJ] Failed to get messages:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('chat-history-create-session', async (_, name?: string) => {
+    try {
+      return createSession(name)
+    } catch (err) {
+      console.error('[MJ] Failed to create session:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('chat-history-set-active', async (_, sessionId: string) => {
+    try {
+      return setActiveSession(sessionId)
+    } catch (err) {
+      console.error('[MJ] Failed to set active session:', err)
+      return false
+    }
+  })
+
+  ipcMain.handle('chat-history-delete-session', async (_, sessionId: string) => {
+    try {
+      return deleteSession(sessionId)
+    } catch (err) {
+      console.error('[MJ] Failed to delete session:', err)
+      return false
+    }
+  })
+
+  ipcMain.handle('chat-history-clear', async () => {
+    try {
+      return clearHistory()
+    } catch (err) {
+      console.error('[MJ] Failed to clear history:', err)
+      return false
+    }
+  })
+
+  ipcMain.handle('chat-history-rename-session', async (_, sessionId: string, newName: string) => {
+    try {
+      return renameSession(sessionId, newName)
+    } catch (err) {
+      console.error('[MJ] Failed to rename session:', err)
+      return false
+    }
   })
 }
 

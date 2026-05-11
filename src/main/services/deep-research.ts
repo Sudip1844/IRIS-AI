@@ -1,6 +1,6 @@
 import { IpcMain } from 'electron'
 import { tavily } from '@tavily/core'
-import Groq from 'groq-sdk'
+
 
 export default function registerDeepResearch({ ipcMain }: { ipcMain: IpcMain }) {
   ipcMain.handle('execute-deep-research', async (event, { query, tavilyKey }) => {
@@ -70,22 +70,19 @@ export default function registerDeepResearch({ ipcMain }: { ipcMain: IpcMain }) 
 
   ipcMain.handle('research-start', async (event, { query }) => {
     try {
-      // Simplified research - in real implementation would use Tavily and Groq
-      // For now, return mock results
-      const mockResults = [
+      const { handleChatRequest } = require('./chat-handler')
+      const answer = await handleChatRequest({
+        text: `Provide a quick summary and 2 key points about: "${query}". Format as plain text.`,
+        provider: 'auto'
+      })
+
+      return [
         {
-          title: `${query} - Research Result 1`,
-          snippet: `This is a mock research result for "${query}". In a real implementation, this would use Tavily API to search the web.`,
-          url: `https://example.com/research/${query.replace(/\s+/g, '-').toLowerCase()}-1`
-        },
-        {
-          title: `${query} - Research Result 2`,
-          snippet: `Another mock research result for "${query}". The actual implementation would synthesize data using Groq AI.`,
-          url: `https://example.com/research/${query.replace(/\s+/g, '-').toLowerCase()}-2`
+          title: `Quick AI Overview: ${query}`,
+          snippet: answer,
+          url: `https://google.com/search?q=${encodeURIComponent(query)}`
         }
       ]
-
-      return mockResults
     } catch (error) {
       console.error('Research failed:', error)
       return []

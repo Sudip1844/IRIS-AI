@@ -30,6 +30,13 @@ describe('provider-registry', () => {
   })
 
   describe('loadProviderConfig', () => {
+    const defaultProviderProps = {
+      code: { enabled: false },
+      vision: { enabled: false },
+      primary_agent: { provider: 'groq', model: 'llama3-8b-8192' },
+      brain: { provider: 'groq' }
+    }
+
     it('should load and decrypt provider config from file', () => {
       const mockConfig: ProviderStore = {
         openai: { apiKey: 'key_encrypted', model: 'gpt-4', enabled: true },
@@ -44,7 +51,8 @@ describe('provider-registry', () => {
         llama_cpp: { enabled: false },
         huggingface: { enabled: false },
         nvidia_nim: { enabled: false },
-        tavily: { enabled: false }
+        tavily: { enabled: false },
+        ...defaultProviderProps
       }
 
       ;(fs.existsSync as jest.Mock).mockReturnValue(true)

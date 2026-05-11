@@ -51,10 +51,8 @@ async function analyzeScreenshot(
   // Most modern models (GPT-4V, Gemini Pro Vision, Claude 3) support image input
   // We send the base64 image as part of the prompt context
   const result = await handleChatRequest({
-    text: `${prompt}\n\n[Screenshot provided as base64 image — ${base64Image.length} chars]\n\n` +
-      `Since you may not be able to see the actual image, here is the base64 data prefix for reference: ` +
-      `${base64Image.substring(0, 100)}...\n\n` +
-      `Analyze based on the context provided and generate your best assessment.`,
+    text: `${prompt}\n\nAnalyze based on the context provided and generate your best assessment.`,
+    images: [base64Image],
     provider: (provider as any) || 'auto',
     model
   })
@@ -87,8 +85,8 @@ async function analyzeBrowserPage(
   const result = await handleChatRequest({
     text: `${prompt}\n\n` +
       `--- Page Text Content ---\n${pageText.substring(0, 2000)}\n---\n\n` +
-      `The page screenshot has been captured (${screenshot.length} chars base64). ` +
-      `Based on the page text above, provide your analysis.`,
+      `Based on the page text above and the provided screenshot, provide your analysis.`,
+    images: [screenshot],
     provider: (provider as any) || 'auto',
     model
   })
@@ -122,9 +120,8 @@ async function analyzeDesktopScreen(
   const result = await handleChatRequest({
     text: `${prompt}\n\n` +
       `I've captured a screenshot of the user's desktop (resolution: ${thumbnail.getSize().width}x${thumbnail.getSize().height}). ` +
-      `The image is ${base64.length} chars in base64.\n\n` +
-      `Based on typical Windows desktop layouts and the context provided, ` +
-      `describe what might be visible and suggest useful actions.`,
+      `Analyze the provided screenshot and suggest useful actions.`,
+    images: [base64],
     provider: (provider as any) || 'auto',
     model
   })

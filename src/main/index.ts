@@ -19,36 +19,28 @@ import fs from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
-// mj-memory-save.ts removed — handlers merged into permanent-memory.ts
-import registerSystemHandlers from './logic/get-system-info'
-import registerFileSearch from './logic/file-search'
-import registerFileOps from './logic/file-ops'
-import registerFileWrite from './logic/file-write'
-import registerFileRead from './logic/file-read'
-import registerFileOpen from './logic/file-open'
-import registerDirLoader from './logic/dir-load'
-import registerFileScanner from './logic/file-launcher'
-import registerAppLauncher from './logic/app-launcher'
-import registerNotesHandlers from './logic/notes-manager'
+// ─── Consolidated Domain Services (Priority 4 Refactor) ───────────
+import registerFSServices from './services/fs-service'
+import registerSystemServices from './services/system-service'
+import registerDeviceServices from './services/device-service'
+import registerIntegrationServices from './services/integrations-service'
+import registerHackerServices from './services/hacker-service'
+
+// ─── Standalone logic modules (not yet consolidated) ──────────────
 import registerWebAgent from './logic/web-agent'
-import registerGhostControl from './logic/ghost-control'
-import registerterminalControl from './logic/terminal-control'
-import registerGalleryHandlers from './logic/gallery-manager'
-import registerGmailHandlers from './logic/gmail-manager'
-import registerLocationHandlers from './logic/live-location'
-import registerAdbHandlers from './logic/adb-manager'
-import registerBiometricHandlers from './logic/biometric-manager'
-import registerStocksHandlers from './logic/stocks-manager'
 import registerAlertsHandlers from './logic/alerts-manager'
 import registerPrivacyHandlers from './logic/privacy-manager'
-import registerAppsHandlers from './logic/apps-manager'
-import registerRealityHacker from './logic/reality-hacker'
-import registerIrisCoder from './services/mj-coder'
-import registerTelekinesis from './logic/telekinesis'
 import registerPermanentMemory from './logic/permanent-memory'
+import registerBiometricHandlers from './logic/biometric-manager'
+
+// ─── Internal services ────────────────────────────────────────────
+import registerIrisCoder from './services/mj-coder'
 import registerWormhole from './services/wormhole'
 import registerOracle from './services/RAG-oracle'
 import registerDeepResearch from './services/deep-research'
+import registerChatHandler from './services/chat-handler'
+
+// ─── Automation & Agents ──────────────────────────────────────────
 import registerWidgetMaker from './auto/widget-manager'
 import registerWebsiteBuilder from './auto/website-builder'
 import registerWorkflowManager from './workflow/workflow-manager'
@@ -58,14 +50,14 @@ import registerVisionEngine from './agents/vision-engine'
 import registerSemanticMemory from './agents/semantic-memory'
 import registerAgentDebate from './agents/agent-debate'
 import registerAgentGraph from './agents/agent-graph'
+
+// ─── Handlers & Security ──────────────────────────────────────────
 import registerDropZoneControl from './handlers/SmartDropZone-Handler'
 import registerScreenPeeler from './handlers/ScreenPeeler-handler'
 import registerPhantomKeyboard from './handlers/PhantomControl-handler'
 import registerSecurityVault from './security/Security'
 import registerLockSystem from './security/lock-system'
 import { listQuarantined, restoreFile, deleteQuarantined } from './security/quarantine-manager'
-import registerChatHandler from './services/chat-handler'
-import { registerSpotifyManager } from './logic/spotify-manager'
 import {
   getProviderConfigPath,
   loadProviderConfig,
@@ -217,6 +209,43 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.electron')
   autoUpdater.checkForUpdatesAndNotify()
 
+  // Auto-migrate legacy vault keys to Provider Registry
+  try {
+    const { loadProviderConfig, saveProviderConfig } = require('./services/providers/provider-registry')
+    const pStore = loadProviderConfig()
+    if (fs.existsSync(secureConfigPath) && !pStore.gemini?.apiKey && !pStore.openai?.apiKey) {
+      const data = JSON.parse(fs.readFileSync(secureConfigPath, 'utf8'))
+      let keys: any = {}
+      if (safeStorage.isEncryptionAvailable()) {
+        if (data.gemini) keys.gemini = safeStorage.decryptString(Buffer.from(data.gemini, 'base64'))
+        if (data.openai) keys.openai = safeStorage.decryptString(Buffer.from(data.openai, 'base64'))
+        if (data.anthropic) keys.anthropic = safeStorage.decryptString(Buffer.from(data.anthropic, 'base64'))
+        if (data.groq) {
+          const rawGroq = safeStorage.decryptString(Buffer.from(data.groq, 'base64'))
+          if (rawGroq.startsWith('{')) keys.groq = JSON.parse(rawGroq).brain?.groqKey
+          else keys.groq = rawGroq
+        }
+      } else {
+        if (data.gemini) keys.gemini = Buffer.from(data.gemini, 'base64').toString('utf8')
+        if (data.openai) keys.openai = Buffer.from(data.openai, 'base64').toString('utf8')
+        if (data.anthropic) keys.anthropic = Buffer.from(data.anthropic, 'base64').toString('utf8')
+        if (data.groq) {
+          const rawGroq = Buffer.from(data.groq, 'base64').toString('utf8')
+          if (rawGroq.startsWith('{')) keys.groq = JSON.parse(rawGroq).brain?.groqKey
+          else keys.groq = rawGroq
+        }
+      }
+      if (keys.gemini) pStore.gemini = { ...pStore.gemini, apiKey: keys.gemini }
+      if (keys.openai) pStore.openai = { ...pStore.openai, apiKey: keys.openai }
+      if (keys.anthropic) pStore.anthropic = { ...pStore.anthropic, apiKey: keys.anthropic }
+      if (keys.groq) pStore.groq = { ...pStore.groq, apiKey: keys.groq }
+      saveProviderConfig(pStore)
+      console.log('[MJ] Successfully migrated legacy keys to Provider Registry.')
+    }
+  } catch (e) {
+    console.error('[MJ] Legacy vault migration failed:', e)
+  }
+
   // Auto-Updater Events
   autoUpdater.on('update-available', () => {
     if (mainWindow) mainWindow.webContents.send('updater-event', { type: 'available' })
@@ -240,6 +269,24 @@ app.whenReady().then(() => {
   ipcMain.handle('secure-save-keys', async (_, payload: any) => {
     try {
       const { groqKey, geminiKey, openaiKey, anthropicKey } = payload
+
+      // Sync AI Keys to the new Provider Registry
+      const { loadProviderConfig, saveProviderConfig } = require('./services/providers/provider-registry')
+      const pStore = loadProviderConfig()
+      if (geminiKey) pStore.gemini = { ...pStore.gemini, apiKey: geminiKey }
+      if (openaiKey) pStore.openai = { ...pStore.openai, apiKey: openaiKey }
+      if (anthropicKey) pStore.anthropic = { ...pStore.anthropic, apiKey: anthropicKey }
+      
+      // Auto-extract Groq key if frontend dumped the entire config JSON into groqKey
+      try {
+        if (groqKey && groqKey.startsWith('{')) {
+          const parsed = JSON.parse(groqKey)
+          if (parsed.brain?.groqKey) pStore.groq = { ...pStore.groq, apiKey: parsed.brain.groqKey }
+        } else if (groqKey) {
+          pStore.groq = { ...pStore.groq, apiKey: groqKey }
+        }
+      } catch (e) {}
+      saveProviderConfig(pStore)
 
       let encrypted: any = {}
 
@@ -360,34 +407,20 @@ app.whenReady().then(() => {
   registerOracle({ ipcMain })
   registerWormhole({ ipcMain })
   registerPermanentMemory({ ipcMain, app })
-  registerTelekinesis({ ipcMain })
   registerIrisCoder({ ipcMain, app })
-  registerRealityHacker(ipcMain)
-  registerAdbHandlers(ipcMain)
-  registerLocationHandlers(ipcMain)
-  registerGmailHandlers(ipcMain)
-  registerGalleryHandlers(ipcMain)
-  registerterminalControl(ipcMain)
-  registerGhostControl(ipcMain)
+
+  // ─── Consolidated Domain Services (Priority 4) ──────────────
+  registerFSServices(ipcMain)
+  registerSystemServices(ipcMain)
+  registerDeviceServices(ipcMain)
+  registerIntegrationServices(ipcMain)
+  registerHackerServices(ipcMain)
+
+  // ─── Standalone logic modules ───────────────────────────────
   registerWebAgent(ipcMain)
-  registerNotesHandlers(ipcMain)
-  registerAppLauncher(ipcMain)
-  registerDirLoader(ipcMain)
-  registerFileOpen(ipcMain)
-  registerFileSearch(ipcMain)
-  registerFileRead(ipcMain)
-  registerFileWrite(ipcMain)
-  registerFileOps(ipcMain)
-  registerFileScanner(ipcMain)
-  registerSystemHandlers(ipcMain)
-  registerBiometricHandlers(ipcMain)
-  registerStocksHandlers(ipcMain)
   registerAlertsHandlers(ipcMain)
   registerPrivacyHandlers(ipcMain)
-  registerAppsHandlers(ipcMain)
-  // registerIpcHandlers removed — merged into registerPermanentMemory (permanent-memory.ts)
-  // registerChatHandler() — already called on line 232
-  registerSpotifyManager()
+  registerBiometricHandlers(ipcMain)
 
   ipcMain.handle('get-screen-source', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen'] })
@@ -409,40 +442,7 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  // ── System Tray ────────────────────────────────────────────────────
-  // Removed: No longer using system tray for background running
-  // const trayIconPath = join(app.getAppPath(), 'resources', 'icon.png')
-  // const trayNativeImage = nativeImage.createFromPath(trayIconPath).resize({ width: 20, height: 20 })
-  // tray = new Tray(trayNativeImage)
-  // tray.setToolTip('MJ Assistant')
 
-  // const trayMenu = Menu.buildFromTemplate([
-  //   {
-  //     label: 'Open MJ Control Center',
-  //     click: (): void => {
-  //       mainWindow?.show()
-  //       mainWindow?.focus()
-  //     }
-  //   },
-  //   {
-  //     label: 'Quick Chat',
-  //     click: (): void => toggleQuickChat()
-  //   },
-  //   { type: 'separator' },
-  //   {
-  //     label: 'Quit MJ',
-  //     click: (): void => {
-  //       isQuiting = true
-  //       if (quickChatWindow) quickChatWindow.destroy()
-  //       app.quit()
-  //     }
-  //   }
-  // ])
-  // tray.setContextMenu(trayMenu)
-  // tray.on('double-click', () => {
-  //   mainWindow?.show()
-  //   mainWindow?.focus()
-  // })
 
   // ── Quit App IPC (from Stop MJ button when user really wants to quit) ──
   ipcMain.handle('quit-app', () => {
@@ -451,23 +451,7 @@ app.whenReady().then(() => {
     app.quit()
   })
 
-  // ── Global Shortcuts ───────────────────────────────────────────────
-  // Removed: No longer using global shortcuts
-  // globalShortcut.register('CommandOrControl+Shift+I', () => toggleOverlayMode())
-  // ipcMain.on('toggle-overlay', () => toggleOverlayMode())
 
-  // Alt+Space → Toggle Mic (sends IPC to renderer)
-  // Removed: No longer using global shortcuts
-  // globalShortcut.register('Alt+Space', () => {
-  //   if (mainWindow) {
-  //     mainWindow.show()
-  //     mainWindow.webContents.send('toggle-mic')
-  //   }
-  // })
-
-  // Ctrl+Shift+M → Toggle Quick Chat
-  // Removed: No longer using global shortcuts
-  // globalShortcut.register('CommandOrControl+Shift+M', () => toggleQuickChat())
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -475,8 +459,7 @@ app.whenReady().then(() => {
 })
 
 app.on('will-quit', () => {
-  // Removed: No global shortcuts to unregister
-  // globalShortcut.unregisterAll()
+  // Cleanup logic here
 })
 
 app.on('window-all-closed', () => {
