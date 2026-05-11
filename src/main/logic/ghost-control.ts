@@ -88,6 +88,7 @@ function generateHumanPath(start: Point, end: Point): Point[] {
 
 export default function registerGhostControl(ipcMain: IpcMain) {
   ipcMain.handle('copy-file-to-clipboard', async (_event, filePath: string) => {
+    console.log(`[GhostControl] copy-file-to-clipboard: ${filePath}`)
     const cmd = `powershell -command "Set-Clipboard -Path '${filePath}'"`
 
     // ── SecurityGateway: classify and approve ──
@@ -105,6 +106,7 @@ export default function registerGhostControl(ipcMain: IpcMain) {
   })
 
   ipcMain.handle('ghost-sequence', async (_event, actions: any[]) => {
+    console.log(`[GhostControl] ghost-sequence: ${actions.length} actions`)
     try {
       for (const action of actions) {
         if (action.type === 'paste') {
@@ -149,7 +151,12 @@ export default function registerGhostControl(ipcMain: IpcMain) {
     return { success: true, enabled }
   })
 
+  ipcMain.handle('ghost-get-state', async () => {
+    return { enabled: ghostModeEnabled }
+  })
+
   ipcMain.handle('ghost-click-coordinate', async (_event, { x, y, doubleClick }) => {
+    console.log(`[GhostControl] ghost-click-coordinate: x=${x} y=${y} double=${doubleClick || false}`)
     try {
       const primaryDisplay = screen.getPrimaryDisplay()
       const scaleFactor = primaryDisplay.scaleFactor
@@ -173,6 +180,7 @@ export default function registerGhostControl(ipcMain: IpcMain) {
   })
 
   ipcMain.handle('ghost-scroll', async (_event, { direction, amount }) => {
+    console.log(`[GhostControl] ghost-scroll: direction=${direction} amount=${amount || 500}`)
     try {
       const scrollAmount = amount || 500
       if (direction === 'up') await mouse.scrollUp(scrollAmount)
@@ -192,6 +200,7 @@ export default function registerGhostControl(ipcMain: IpcMain) {
   })
 
   ipcMain.handle('set-volume', async (_event, level: number) => {
+    console.log(`[GhostControl] set-volume: ${level}%`)
     try {
       await loudness.setVolume(level)
       return `Volume ${level}%`
@@ -200,6 +209,7 @@ export default function registerGhostControl(ipcMain: IpcMain) {
     }
   })
   ipcMain.handle('take-screenshot', async () => {
+    console.log('[GhostControl] take-screenshot')
     try {
       const filename = `IRIS_Capture_${Date.now()}.png`
       const savePath = path.join(app.getPath('pictures'), filename)

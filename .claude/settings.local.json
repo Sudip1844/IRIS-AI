@@ -3,7 +3,19 @@
     "allow": [
       "Bash(npm test *)",
       "Bash(npm run *)",
-      "Bash(npx jest *)"
+      "Bash(npx jest *)",
+      "Bash(cat)",
+      "Bash(head -87 src/main/services/chat-handler.ts)",
+      "Bash(tail -n +104 src/main/services/chat-handler.ts)",
+      "Bash(cat /tmp/fix_handler.txt)",
+      "Read(//tmp/**)",
+      "Bash(git checkout *)",
+      "Bash(sed -n '1,86p' src/main/services/chat-handler.ts)",
+      "Bash(echo)",
+      "Bash(tail -n +103 src/main/services/chat-handler.ts)",
+      "Bash(cat /tmp/handler_section.txt)",
+      "Bash(cp /tmp/handler_part1.ts src/main/services/chat-handler.ts)",
+      "Bash(python3)"
     ]
   }
 }

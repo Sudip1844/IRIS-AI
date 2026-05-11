@@ -4,6 +4,7 @@ import { app, safeStorage } from 'electron'
 
 export type ProviderName =
   | 'gemini'
+  | 'google'
   | 'groq'
   | 'openai'
   | 'anthropic'
@@ -35,6 +36,7 @@ const PROVIDER_FILE = path.join(app.getPath('userData'), 'mj_provider_config.jso
 
 const DEFAULT_PROVIDERS: ProviderStore = {
   gemini: { enabled: true, model: 'gemini-2.5-flash' },
+  google: { enabled: true, model: 'gemini-2.5-flash' },
   groq: { enabled: true, model: 'llama3-8b-8192' },
   openai: { enabled: true, model: 'gpt-4' },
   anthropic: { enabled: true, model: 'claude-3-sonnet-20240229' },
@@ -136,4 +138,5 @@ export function decryptKey(value: string): string {
     return safeStorage.decryptString(Buffer.from(value, 'base64'))
   }
   return Buffer.from(value, 'base64').toString('utf8')
+
 }

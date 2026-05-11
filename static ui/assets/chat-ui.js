@@ -2,6 +2,12 @@
   const ipc = window.electron && window.electron.ipcRenderer ? window.electron.ipcRenderer : null;
   const isElectron = !!ipc;
 
+  // ─── Input Mode Tracking: 'text' or 'voice' ───
+  // Determines whether TTS (speakAndAnimate) should fire for responses.
+  // Voice mode: user spoke via mic → response should be spoken aloud.
+  // Text mode: user typed → response should be text-only (no TTS).
+  window.__mj_inputMode = window.__mj_inputMode || 'text';
+
   // DOM Refs
   const chatInput = document.getElementById('chat-input');
   const sendBtn = document.getElementById('send-btn');
@@ -106,6 +112,19 @@
     renderChatHistory();
   }
 
+  /**
+   * Speak response aloud ONLY if the current input came from voice mode.
+   * Text mode: no TTS. Voice mode: TTS enabled.
+   * Resets to text mode after each response.
+   */
+  function speakIfVoiceMode(text) {
+    if (window.__mj_inputMode === 'voice') {
+      speakAndAnimate(text);
+    }
+    // Always reset to text mode after processing a response
+    window.__mj_inputMode = 'text';
+  }
+
   async function sendMessage() {
     const text = chatInput.value.trim();
     if (!text && !previewImg.src) return;
@@ -136,7 +155,7 @@
         const result = await ipc.invoke('play-spotify-music', songName);
         thinkingEl.remove();
         appendMessage('mj', result);
-        speakAndAnimate(result);
+        speakIfVoiceMode(result);
         saveChatHistory(text, result);
       } catch (err) {
         thinkingEl.remove();
@@ -169,7 +188,7 @@
           appendMessage('error', replyText);
         } else {
           appendMessage('mj', replyText);
-          speakAndAnimate(replyText);
+          speakIfVoiceMode(replyText);
         }
       } catch (err) {
         thinkingEl.remove();
@@ -181,7 +200,7 @@
       thinkingEl.remove();
       replyText = 'I received: "' + text + '". Connect to Electron backend for full AI functionality.';
       appendMessage('mj', replyText);
-      speakAndAnimate(replyText);
+      speakIfVoiceMode(replyText);
     }
 
     saveChatHistory(text || 'Image Upload', replyText);
@@ -252,7 +271,7 @@
     if (isElectron) {
       ipc.on('chat-reply', (event, data) => {
         appendMessage('mj', data);
-        speakAndAnimate(data);
+        speakIfVoiceMode(data);
       });
       ipc.on('chat-error', (event, data) => appendMessage('error', data));
     }

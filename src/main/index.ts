@@ -32,6 +32,19 @@ import registerAlertsHandlers from './logic/alerts-manager'
 import registerPrivacyHandlers from './logic/privacy-manager'
 import registerPermanentMemory from './logic/permanent-memory'
 import registerBiometricHandlers from './logic/biometric-manager'
+import registerStocksManager from './logic/stocks-manager'
+import registerGalleryManager from './logic/gallery-manager'
+import registerNotesManager from './logic/notes-manager'
+
+// ─── Ghost Control & Computer Control ─────────────────────────────
+import registerGhostControl from './logic/ghost-control'
+import registerAppLauncher from './logic/app-launcher'
+import registerFileOps from './logic/file-ops'
+import registerFileWrite from './logic/file-write'
+import registerFileRead from './logic/file-read'
+import registerFileOpen from './logic/file-open'
+import registerFileScanner from './logic/file-launcher'
+import registerSystemControl from './logic/terminal-control'
 
 // ─── Internal services ────────────────────────────────────────────
 import registerIrisCoder from './services/mj-coder'
@@ -421,6 +434,19 @@ app.whenReady().then(() => {
   registerAlertsHandlers(ipcMain)
   registerPrivacyHandlers(ipcMain)
   registerBiometricHandlers(ipcMain)
+  registerStocksManager(ipcMain)
+  registerGalleryManager(ipcMain)
+  registerNotesManager(ipcMain)
+
+  // ─── Ghost Control & Computer Control ───────────────────────
+  registerGhostControl(ipcMain)
+  registerAppLauncher(ipcMain)
+  registerFileOps(ipcMain)
+  registerFileWrite(ipcMain)
+  registerFileRead(ipcMain)
+  registerFileOpen(ipcMain)
+  registerFileScanner(ipcMain)
+  registerSystemControl(ipcMain)
 
   ipcMain.handle('get-screen-source', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen'] })

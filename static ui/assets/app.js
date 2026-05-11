@@ -312,7 +312,9 @@
     if (!isMicActive) {
       // Turn ON
       isMicActive = true;
+      window.__mj_inputMode = 'voice';
       initAudioEngine();
+      if (voiceStatus) voiceStatus.textContent = 'Voice: Listening'
       if (micBtn) {
         micBtn.classList.remove('bg-card', 'text-muted-foreground', 'bg-emerald-500', 'hover:bg-accent');
         micBtn.classList.add('bg-rose-500', 'text-white', 'shadow-lg', 'shadow-rose-500/20');
@@ -326,7 +328,7 @@
       
       if (chatInput) {
         chatInput.disabled = true;
-        chatInput.placeholder = 'Listening for voice...';
+        chatInput.placeholder = 'Voice mode — responses will be spoken aloud...';
         chatInput.classList.add('opacity-50');
       }
 
@@ -345,6 +347,8 @@
               }
             }
             if (finalTranscript.trim() !== '') {
+              // Mark this input as coming from voice so TTS responds aloud
+              window.__mj_inputMode = 'voice';
               if (chatInput) chatInput.value = finalTranscript;
               if (sendBtn && !sendBtn.disabled) {
                 sendBtn.click();
@@ -366,10 +370,13 @@
     } else {
       // Turn OFF
       isMicActive = false;
+      window.__mj_inputMode = 'text';
       if (microphone) {
         microphone.disconnect();
         microphone = null;
       }
+      
+      if (voiceStatus) voiceStatus.textContent = 'Voice: Text Mode'
       
       if (micBtn) {
         micBtn.classList.remove('bg-rose-500', 'text-white', 'shadow-lg', 'shadow-rose-500/20');
@@ -384,7 +391,7 @@
       
       if (chatInput) {
         chatInput.disabled = false;
-        chatInput.placeholder = 'Type a message... (Ctrl+Enter to send)';
+        chatInput.placeholder = 'Type a message... (text-only, no voice output)';
         chatInput.classList.remove('opacity-50');
         chatInput.focus();
       }
@@ -644,6 +651,7 @@
       // Add available providers that have API keys
       const availableProviders = [
         { key: 'gemini', name: 'Google Gemini', icon: '🤖' },
+        { key: 'google', name: 'Google AI', icon: '🌐' },
         { key: 'groq', name: 'Groq', icon: '⚡' },
         { key: 'openai', name: 'OpenAI', icon: '🟢' },
         { key: 'anthropic', name: 'Anthropic', icon: '🟣' },
@@ -661,6 +669,27 @@
           const opt = document.createElement('option')
           opt.value = provider.key
           opt.textContent = `${provider.icon} ${provider.name}`
+          opt.dataset.role = 'provider'
+          agentSelectEl.appendChild(opt)
+        }
+      })
+
+      // Add sub-agent role types (brain/vision/code) based on provider config
+      const subAgentRoles = [
+        { key: 'brain', name: '🧠 Brain (Reasoning)', provider: providerConfig.brain?.provider || 'groq', icon: '🧠' },
+        { key: 'vision', name: '👁️ Vision (Image/Visual)', provider: providerConfig.vision?.provider || 'gemini', icon: '👁️' },
+        { key: 'code', name: '💻 Code (Programming)', provider: providerConfig.code?.provider || 'openai', icon: '💻' }
+      ]
+
+      subAgentRoles.forEach((role) => {
+        // Only show role if its underlying provider has an API key
+        const roleProvider = role.provider
+        if (providerConfig[roleProvider]?.apiKey || providerConfig.gemini?.apiKey || providerConfig.google?.apiKey) {
+          const opt = document.createElement('option')
+          opt.value = role.provider
+          opt.textContent = role.name
+          opt.dataset.role = 'subagent'
+          opt.dataset.subagentKey = role.key
           agentSelectEl.appendChild(opt)
         }
       })
@@ -687,10 +716,13 @@
     addAgentBtn.addEventListener('click', () => {
       const name = prompt('Enter custom agent name (e.g., "My GPT-4"):')
       if (!name || !name.trim()) return
+      const provider = prompt('Enter provider to route through (gemini, google, groq, openai, anthropic, deepseek, etc.):')
+      if (!provider || !provider.trim()) return
       if (agentSelectEl) {
         const opt = document.createElement('option')
-        opt.value = 'custom-' + Date.now()
-        opt.textContent = name.trim()
+        opt.value = provider.trim().toLowerCase()
+        opt.textContent = `${name.trim()} (${provider.trim()})`
+        opt.dataset.role = 'custom'
         agentSelectEl.appendChild(opt)
         agentSelectEl.value = opt.value
         updateSubAgentPlaceholder()
@@ -707,9 +739,10 @@
     if (!text) return
 
     const selectedProvider = agentSelectEl ? agentSelectEl.value : 'auto'
-    const selectedAgentName = agentSelectEl
-      ? agentSelectEl.options[agentSelectEl.selectedIndex]?.text || 'AI'
-      : 'AI'
+    const selectedOption = agentSelectEl ? agentSelectEl.options[agentSelectEl.selectedIndex] : null
+    const selectedAgentName = selectedOption?.text || 'AI'
+    const optionRole = selectedOption?.dataset?.role || 'provider'
+    const subagentKey = selectedOption?.dataset?.subagentKey || ''
 
     // Show user message
     if (subagentMessages) {
@@ -724,15 +757,53 @@
 
     if (isElectron) {
       try {
-        // Route to specific provider
-        const reply = await ipc.invoke('chat-with-ai', {
-          text: text,
-          provider: selectedProvider
-        })
+        let reply = null
+
+        // If a subagent role is selected (brain/vision/code), try orchestrator dispatch first
+        if (optionRole === 'subagent' && subagentKey && subagentKey !== '') {
+          try {
+            // Check if any teams exist, create a default one if not
+            const teams = await ipc.invoke('agent-list-teams')
+            let teamId = teams && teams.length > 0 ? teams[0].id : null
+
+            if (!teamId) {
+              // Create a default team for sub-agent dispatch
+              const createResult = await ipc.invoke('agent-create-team', {
+                name: 'MJ Default Team',
+                description: 'Default team for sub-agent task routing'
+              })
+              if (createResult.success) {
+                teamId = createResult.team.id
+              }
+            }
+
+            if (teamId) {
+              // Dispatch via orchestrator with role-specific prompt
+              const rolePrompt = subagentKey === 'brain' ? 'As a reasoning specialist' : subagentKey === 'vision' ? 'As a visual/image specialist' : subagentKey === 'code' ? 'As a code/programming specialist' : ''
+              const dispatchResult = await ipc.invoke('agent-dispatch', {
+                teamId: teamId,
+                request: `${rolePrompt}: ${text}`
+              })
+              if (dispatchResult.success) {
+                reply = dispatchResult.result || dispatchResult.output || JSON.stringify(dispatchResult)
+              }
+            }
+          } catch (orchErr) {
+            console.log('[SubAgent] Orchestrator dispatch failed, falling back to chat-with-ai:', orchErr)
+          }
+        }
+
+        // Fallback: route to specific provider via chat-with-ai
+        if (!reply) {
+          reply = await ipc.invoke('chat-with-ai', {
+            text: text,
+            provider: selectedProvider
+          })
+        }
 
         const isError =
           typeof reply === 'string' && /(^ERROR:|\bError:|\bFailed\b|\bfailed\b)/.test(reply)
-        const content = escapeHtml(reply || 'No response')
+        const content = escapeHtml(typeof reply === 'string' ? reply : JSON.stringify(reply))
         if (subagentMessages) {
           subagentMessages.innerHTML += `<div class="flex justify-start"><div class="max-w-[75%] p-3 rounded-2xl ${isError ? 'bg-rose-500/10 border border-rose-500/20 text-rose-600' : 'bg-card border border-border'} text-sm"><span class="text-[10px] font-bold ${isError ? 'text-rose-600' : 'text-primary'} uppercase block mb-1">${escapeHtml(isError ? 'Error' : selectedAgentName)}</span>${content}</div></div>`
           subagentMessages.scrollTop = subagentMessages.scrollHeight
@@ -999,28 +1070,35 @@
   // ========= LOAD SAVED KEYS (populate Settings fields) =========
   const PROVIDER_MODELS = {
     openai: [
-      { id: 'gpt-4o', name: 'GPT-4o (Best overall)' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast)' },
-      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' }
+      { id: 'gpt-4o', name: 'GPT-4o', tag: 'Best overall', speed: 'med', context: '128K', tier: 'paid' },
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', tag: 'Fast & cheap', speed: 'fast', context: '128K', tier: 'low-cost' },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', tag: 'Legacy', speed: 'slow', context: '128K', tier: 'paid' }
     ],
     gemini: [
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' }
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Latest', speed: 'fast', context: '1M', tier: 'free' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'Fast', speed: 'fast', context: '1M', tier: 'free' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Reasoning', speed: 'slow', context: '2M', tier: 'paid' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tag: 'Budget', speed: 'fast', context: '1M', tier: 'free' }
+    ],
+    google: [
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Latest', speed: 'fast', context: '1M', tier: 'free' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'Fast', speed: 'fast', context: '1M', tier: 'free' },
+      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Reasoning', speed: 'slow', context: '2M', tier: 'paid' },
+      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tag: 'Budget', speed: 'fast', context: '1M', tier: 'free' }
     ],
     groq: [
-      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B' },
-      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
-      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' }
+      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', tag: 'Fastest', speed: 'fast', context: '128K', tier: 'free' },
+      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', tag: 'Versatile', speed: 'med', context: '128K', tier: 'free' },
+      { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', tag: 'MoE', speed: 'med', context: '32K', tier: 'free' }
     ],
     anthropic: [
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
-      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', tag: 'Best', speed: 'med', context: '200K', tier: 'paid' },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', tag: 'Fast & cheap', speed: 'fast', context: '200K', tier: 'low-cost' },
+      { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', tag: 'Reasoning', speed: 'slow', context: '200K', tier: 'paid' }
     ],
     deepseek: [
-      { id: 'deepseek-chat', name: 'DeepSeek Chat (V3)' },
-      { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (R1)' }
+      { id: 'deepseek-chat', name: 'DeepSeek Chat (V3)', tag: 'General', speed: 'med', context: '64K', tier: 'free' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (R1)', tag: 'Reasoning', speed: 'slow', context: '64K', tier: 'free' }
     ]
   };
 
@@ -1029,18 +1107,36 @@
     try {
       providerConfig = await ipc.invoke('provider-load-config')
       if (providerConfig) {
-        // Populate API key fields
-        if (geminiKey && providerConfig.gemini?.apiKey) geminiKey.value = providerConfig.gemini.apiKey
-        if (groqKey && providerConfig.groq?.apiKey) groqKey.value = providerConfig.groq.apiKey
-        if (openaiKey && providerConfig.openai?.apiKey) openaiKey.value = providerConfig.openai.apiKey
-        if (anthropicKey && providerConfig.anthropic?.apiKey) anthropicKey.value = providerConfig.anthropic.apiKey
-        if (deepseekKey && providerConfig.deepseek?.apiKey) deepseekKey.value = providerConfig.deepseek.apiKey
-        if (mistralKey && providerConfig.mistral?.apiKey) mistralKey.value = providerConfig.mistral.apiKey
-        if (openrouterKey && providerConfig.openrouter?.apiKey) openrouterKey.value = providerConfig.openrouter.apiKey
-        if (xaiKey && providerConfig.xai?.apiKey) xaiKey.value = providerConfig.xai.apiKey
-        if (nvidiaKey && providerConfig.nvidia_nim?.apiKey) nvidiaKey.value = providerConfig.nvidia_nim.apiKey
-        if (hfKey && providerConfig.huggingface?.apiKey) hfKey.value = providerConfig.huggingface.apiKey
-        if (tavilyKey && providerConfig.tavily?.apiKey) tavilyKey.value = providerConfig.tavily.apiKey
+        // Populate API key fields and show status indicators
+        const keyFields = [
+          { input: geminiKey, provider: 'gemini', label: 'Google Gemini' },
+          { input: groqKey, provider: 'groq', label: 'Groq' },
+          { input: openaiKey, provider: 'openai', label: 'OpenAI' },
+          { input: anthropicKey, provider: 'anthropic', label: 'Anthropic' },
+          { input: deepseekKey, provider: 'deepseek', label: 'DeepSeek' },
+          { input: mistralKey, provider: 'mistral', label: 'Mistral' },
+          { input: openrouterKey, provider: 'openrouter', label: 'OpenRouter' },
+          { input: xaiKey, provider: 'xai', label: 'xAI' },
+          { input: nvidiaKey, provider: 'nvidia_nim', label: 'Nvidia NIM' },
+          { input: hfKey, provider: 'huggingface', label: 'Hugging Face' },
+          { input: tavilyKey, provider: 'tavily', label: 'Tavily' }
+        ];
+
+        keyFields.forEach(({ input, provider, label }) => {
+          if (!input) return;
+          const hasKey = !!providerConfig[provider]?.apiKey;
+          if (hasKey) input.value = providerConfig[provider].apiKey;
+
+          // Remove old status indicator if exists
+          const oldStatus = input.parentElement.querySelector('.key-status');
+          if (oldStatus) oldStatus.remove();
+
+          // Add status indicator
+          const status = document.createElement('span');
+          status.className = 'key-status text-[10px] font-semibold ml-1 ' + (hasKey ? 'text-green-400' : 'text-zinc-500');
+          status.textContent = hasKey ? '✓ Saved' : '— No key';
+          input.parentElement.appendChild(status);
+        });
 
         // Populate Primary Provider Dropdown based on available keys
         const primaryProvider = document.getElementById('primary-provider');
@@ -1051,10 +1147,17 @@
             
             const availableProviders = [];
             if (providerConfig.openai?.apiKey) availableProviders.push({ id: 'openai', name: 'OpenAI (GPT)' });
-            if (providerConfig.gemini?.apiKey) availableProviders.push({ id: 'gemini', name: 'Google (Gemini)' });
+            if (providerConfig.gemini?.apiKey || providerConfig.google?.apiKey) availableProviders.push({ id: 'gemini', name: 'Google (Gemini)' });
+            if (providerConfig.google?.apiKey) availableProviders.push({ id: 'google', name: 'Google AI' });
             if (providerConfig.groq?.apiKey) availableProviders.push({ id: 'groq', name: 'Groq (Llama)' });
             if (providerConfig.anthropic?.apiKey) availableProviders.push({ id: 'anthropic', name: 'Anthropic (Claude)' });
             if (providerConfig.deepseek?.apiKey) availableProviders.push({ id: 'deepseek', name: 'DeepSeek' });
+            if (providerConfig.mistral?.apiKey) availableProviders.push({ id: 'mistral', name: 'Mistral' });
+            if (providerConfig.openrouter?.apiKey) availableProviders.push({ id: 'openrouter', name: 'OpenRouter' });
+            if (providerConfig.xai?.apiKey) availableProviders.push({ id: 'xai', name: 'xAI (Grok)' });
+            if (providerConfig.huggingface?.apiKey) availableProviders.push({ id: 'huggingface', name: 'Hugging Face' });
+            if (providerConfig.nvidia_nim?.apiKey) availableProviders.push({ id: 'nvidia_nim', name: 'Nvidia NIM' });
+            if (providerConfig.tavily?.apiKey) availableProviders.push({ id: 'tavily', name: 'Tavily' });
 
             availableProviders.forEach(p => {
                 const opt = document.createElement('option');
@@ -1063,34 +1166,27 @@
                 primaryProvider.appendChild(opt);
             });
 
-            // Handle Provider Change
-            primaryProvider.addEventListener('change', (e) => {
-                const provider = e.target.value;
-                primaryModel.innerHTML = '<option value="" disabled selected>Select Model...</option>';
-                
-                if (PROVIDER_MODELS[provider]) {
-                    primaryModel.disabled = false;
-                    PROVIDER_MODELS[provider].forEach(m => {
-                        const opt = document.createElement('option');
-                        opt.value = m.id;
-                        opt.textContent = m.name;
-                        primaryModel.appendChild(opt);
-                    });
-                } else {
-                    primaryModel.disabled = true;
-                    primaryModel.innerHTML = '<option value="default">Default Model</option>';
-                }
-            });
-
             // Set saved primary config if exists
             if (providerConfig.primary_agent) {
                 if (availableProviders.find(p => p.id === providerConfig.primary_agent.provider)) {
                     primaryProvider.value = providerConfig.primary_agent.provider;
-                    // Trigger change to populate models
-                    primaryProvider.dispatchEvent(new Event('change'));
-                    setTimeout(() => {
-                        primaryModel.value = providerConfig.primary_agent.model || '';
-                    }, 50);
+                    // Trigger model population via populateModelsForProvider
+                    populateModelsForProvider(providerConfig.primary_agent.provider, primaryModel);
+                    // Set the saved model value if it exists in the dropdown
+                    const savedModel = providerConfig.primary_agent.model;
+                    if (savedModel) {
+                        const modelOption = primaryModel.querySelector(`option[value="${savedModel}"]`);
+                        if (modelOption) {
+                            primaryModel.value = savedModel;
+                        } else {
+                            // Model not in list — add it as a custom option
+                            const customOpt = document.createElement('option');
+                            customOpt.value = savedModel;
+                            customOpt.textContent = savedModel + ' (custom)';
+                            primaryModel.appendChild(customOpt);
+                            primaryModel.value = savedModel;
+                        }
+                    }
                 }
             }
         }
@@ -1098,6 +1194,40 @@
     } catch (e) {
       console.error('Load provider config failed:', e)
     }
+  }
+
+  // Populate model dropdown for a given provider (separated from loadSavedKeys to avoid duplicate listeners)
+  function populateModelsForProvider(provider, modelSelect) {
+    if (!modelSelect) return;
+    modelSelect.innerHTML = '<option value="" disabled selected>Select Model...</option>';
+    if (PROVIDER_MODELS[provider]) {
+        modelSelect.disabled = false;
+        PROVIDER_MODELS[provider].forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            const tierIcon = m.tier === 'free' ? '🟢' : m.tier === 'low-cost' ? '🟡' : '🔴';
+            const speedIcon = m.speed === 'fast' ? '⚡' : m.speed === 'med' ? '➡️' : '🐢';
+            opt.textContent = `${m.name} — ${m.tag} | ${speedIcon}${m.speed} | ${m.context} | ${tierIcon}${m.tier}`;
+            modelSelect.appendChild(opt);
+        });
+    } else {
+        modelSelect.disabled = false;
+        modelSelect.innerHTML = '<option value="" disabled selected>Enter model name manually</option>';
+        // For providers without predefined models, add a text input option
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = 'default';
+        defaultOpt.textContent = 'Default Model';
+        modelSelect.appendChild(defaultOpt);
+    }
+  }
+
+  // One-time setup of primary provider change listener (never re-registered)
+  const _primaryProviderEl = document.getElementById('primary-provider');
+  const _primaryModelEl = document.getElementById('primary-model');
+  if (_primaryProviderEl && _primaryModelEl) {
+    _primaryProviderEl.addEventListener('change', (e) => {
+        populateModelsForProvider(e.target.value, _primaryModelEl);
+    });
   }
 
   // (Old EXTERNAL INTEGRATIONS SAVE/EDIT TOGGLE logic removed, now handled by individual edit buttons)
@@ -1277,23 +1407,55 @@
     })
   }
 
+  // Ghost Control — proper toggle with state sync
+  let ghostControlEnabled = false
+
+  async function syncGhostControlState() {
+    if (!isElectron) return
+    try {
+      const state = await ipc.invoke('ghost-get-state')
+      ghostControlEnabled = state?.enabled || false
+      updateGhostControlUI()
+    } catch (e) {
+      console.error('Ghost control state sync failed:', e)
+    }
+  }
+
+  function updateGhostControlUI() {
+    if (!btnGhostControl) return
+    if (ghostControlEnabled) {
+      btnGhostControl.textContent = '🔴 Ghost Active'
+      btnGhostControl.classList.remove('bg-rose-600')
+      btnGhostControl.classList.add('bg-rose-800', 'animate-pulse')
+    } else {
+      btnGhostControl.textContent = 'Enable Ghost Control'
+      btnGhostControl.classList.remove('bg-rose-800', 'animate-pulse')
+      btnGhostControl.classList.add('bg-rose-600')
+    }
+  }
+
   if (btnGhostControl) {
     btnGhostControl.addEventListener('click', async () => {
-      if (isElectron) {
-        if (confirm('⚠️ Ghost Control allows AI to simulate keyboard and mouse. Enable?')) {
-          try {
-            await ipc.invoke('ghost-toggle', { enabled: true })
-            btnGhostControl.textContent = '🔴 Ghost Active'
-            btnGhostControl.classList.remove('bg-rose-600')
-            btnGhostControl.classList.add('bg-rose-800', 'animate-pulse')
-          } catch (e) {
-            console.error('Ghost control error:', e)
-          }
-        }
-      } else {
+      if (!isElectron) {
         showToast('Ghost Control requires Native OS access.', 'error')
+        return
+      }
+
+      const nextState = !ghostControlEnabled
+      const actionLabel = nextState ? 'Enable' : 'Disable'
+      if (confirm(`⚠️ ${actionLabel} Ghost Control? This allows AI to simulate keyboard and mouse.`)) {
+        try {
+          await ipc.invoke('ghost-toggle', { enabled: nextState })
+          ghostControlEnabled = nextState
+          updateGhostControlUI()
+        } catch (e) {
+          console.error('Ghost control error:', e)
+        }
       }
     })
+
+    // Sync state on load
+    syncGhostControlState()
   }
 
   // ========= NEW TAB HANDLERS =========
@@ -1898,6 +2060,7 @@
     saveKeysBtn.addEventListener('click', async () => {
       const config = {
         gemini: { apiKey: geminiKey.value.trim() },
+        google: { apiKey: geminiKey.value.trim() },
         groq: { apiKey: groqKey.value.trim() },
         openai: { apiKey: openaiKey.value.trim() },
         anthropic: { apiKey: anthropicKey.value.trim() },
@@ -1912,10 +2075,11 @@
 
       const primaryProvider = document.getElementById('primary-provider');
       const primaryModel = document.getElementById('primary-model');
-      if (primaryProvider && primaryModel && primaryProvider.value) {
+      if (primaryProvider && primaryProvider.value) {
+          const selectedModel = primaryModel.value;
           config.primary_agent = {
               provider: primaryProvider.value,
-              model: primaryModel.value !== 'default' ? primaryModel.value : null
+              model: (selectedModel && selectedModel !== 'default' && selectedModel !== '') ? selectedModel : undefined
           };
       }
 
@@ -1924,13 +2088,29 @@
           const success = await ipc.invoke('provider-save-config', config)
           if (success) {
             saveKeysBtn.textContent = '✅ Saved!'
+            // Show per-key save status
+            const keyInputs = [geminiKey, groqKey, openaiKey, anthropicKey, deepseekKey, mistralKey, openrouterKey, xaiKey, nvidiaKey, hfKey, tavilyKey];
+            const keyNames = ['gemini', 'groq', 'openai', 'anthropic', 'deepseek', 'mistral', 'openrouter', 'xai', 'nvidia_nim', 'huggingface', 'tavily'];
+            keyInputs.forEach((input, i) => {
+              if (!input) return;
+              const oldStatus = input.parentElement.querySelector('.key-status');
+              if (oldStatus) oldStatus.remove();
+              const hasKey = !!input.value.trim();
+              const status = document.createElement('span');
+              status.className = 'key-status text-[10px] font-semibold ml-1 ' + (hasKey ? 'text-green-400' : 'text-zinc-500');
+              status.textContent = hasKey ? '✓ Saved' : '— No key';
+              input.parentElement.appendChild(status);
+            });
             // Refresh the available primary providers based on new keys
             loadSavedKeys()
             setTimeout(() => {
               saveKeysBtn.textContent = '💾 Save API Keys'
             }, 2000)
           } else {
-            console.error('Save provider config failed')
+            saveKeysBtn.textContent = '❌ Save Failed'
+            setTimeout(() => {
+              saveKeysBtn.textContent = '💾 Save API Keys'
+            }, 2000)
           }
         } catch (err) {
           console.error('Save provider config failed:', err)

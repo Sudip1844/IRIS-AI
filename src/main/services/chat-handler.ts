@@ -1,6 +1,7 @@
 import { ipcMain, app, safeStorage } from 'electron'
 import { join } from 'path'
 import * as fs from 'fs'
+import { exec } from 'child_process'
 import { GoogleGenAI } from '@google/genai'
 import Groq from 'groq-sdk'
 import { chatWithOpenAI, streamChatWithOpenAI } from './openai-handler'
@@ -14,6 +15,7 @@ import { chatWithHuggingFace, streamChatWithHuggingFace } from './huggingface-ha
 import { chatWithTavily, streamChatWithTavily } from './tavily-handler'
 import { loadProviderConfig, ProviderConfig, ProviderStore } from './providers/provider-registry'
 import { extractErrorMessage, logError, providerError, retryAsync } from './error-utils'
+import { startApp } from '../logic/app-launcher'
 import {
   createSession,
   getActiveSession,
@@ -88,6 +90,7 @@ function getSecureVaultPath() {
     return {
       groq: isProviderEnabled(store.groq) ? store.groq?.apiKey : undefined,
       gemini: isProviderEnabled(store.gemini) ? store.gemini?.apiKey : undefined,
+      google: isProviderEnabled(store.google) ? store.google?.apiKey || store.gemini?.apiKey : store.gemini?.apiKey,
       openai: isProviderEnabled(store.openai) ? store.openai?.apiKey : undefined,
       anthropic: isProviderEnabled(store.anthropic) ? store.anthropic?.apiKey : undefined,
       deepseek: isProviderEnabled(store.deepseek) ? store.deepseek?.apiKey : undefined,
@@ -102,9 +105,159 @@ function getSecureVaultPath() {
 
 
 
+  // ─── System Command Router (Ghost Control Integration) ────────────
+  /**
+   * Intercepts common system commands before sending to AI.
+   * Returns a result string if handled, or null if should proceed to AI.
+   */
+  async function tryHandleSystemCommand(text: string): Promise<string | null> {
+    if (!text) return null
+    const lower = text.toLowerCase().trim()
+
+    // 1. OPEN APP: "Open Notepad", "Launch Chrome", "Start VSCode"
+    const openMatch = lower.match(/^(?:open|launch|start)\s+(.+)$/i)
+    if (openMatch) {
+      const appName = openMatch[1].trim()
+      console.log(`[GhostControl] Opening app: ${appName}`)
+      try {
+        const result = await startApp(appName)
+        return result.message || `Opened ${appName}.`
+      } catch (e: any) {
+        return `Failed to open ${appName}: ${e.message || e}`
+      }
+    }
+
+    // 2. CLOSE APP: "Close Chrome", "Kill Notepad"
+    const closeMatch = lower.match(/^(?:close|kill|quit|exit)\s+(.+)$/i)
+    if (closeMatch) {
+      const appName = closeMatch[1].trim()
+      console.log(`[GhostControl] Closing app: ${appName}`)
+      return new Promise((resolve) => {
+        const processName = appName.endsWith('.exe') ? appName : `${appName}.exe`
+        if (['explorer.exe', 'dwm.exe', 'svchost.exe', 'lsass.exe', 'csrss.exe', 'wininit.exe', 'winlogon.exe', 'services.exe', 'taskmgr.exe', 'system', 'registry'].includes(processName.toLowerCase())) {
+          resolve(`Security Protocol: I cannot close '${appName}' (System Critical Process).`)
+          return
+        }
+        exec(`taskkill /IM "${processName}" /F /T`, (error) => {
+          if (error) {
+            resolve(`Could not close ${appName}. Is it running?`)
+          } else {
+            resolve(`Closed ${appName}.`)
+          }
+        })
+      })
+    }
+
+    // 3. CREATE/WRITE FILE: "Create file test.txt with content Hello"
+    const writeMatch = text.match(/^create file\s+(.+?)\s+with content\s+(.+)$/i) ||
+                        text.match(/^write file\s+(.+?)\s+with content\s+(.+)$/i) ||
+                        text.match(/^create file\s+(.+)$/i)
+    if (writeMatch) {
+      const fileName = writeMatch[1].trim()
+      const content = writeMatch[2] || ''
+      console.log(`[GhostControl] Writing file: ${fileName}`)
+      try {
+        const isAbsolute = fileName.includes('/') || fileName.includes('\\')
+        const targetPath = isAbsolute ? fileName : join(app.getPath('desktop'), fileName)
+        fs.writeFileSync(targetPath, content, 'utf-8')
+        return `Created file: ${targetPath}`
+      } catch (e: any) {
+        return `Failed to create file: ${e.message || e}`
+      }
+    }
+
+    // 4. DELETE FILE: "Delete test.txt", "Remove file test.txt"
+    const deleteMatch = lower.match(/^(?:delete|remove)\s+(?:file\s+)?(.+)$/i)
+    if (deleteMatch) {
+      const fileName = deleteMatch[1].trim()
+      console.log(`[GhostControl] Deleting file: ${fileName}`)
+      try {
+        const isAbsolute = fileName.includes('/') || fileName.includes('\\')
+        const targetPath = isAbsolute ? fileName : join(app.getPath('desktop'), fileName)
+        fs.unlinkSync(targetPath)
+        return `Deleted: ${targetPath}`
+      } catch (e: any) {
+        return `Failed to delete: ${e.message || e}`
+      }
+    }
+
+    // 5. READ FILE: "Read file test.txt", "Show contents of test.txt"
+    const readMatch = lower.match(/^(?:read|show contents of)\s+(?:file\s+)?(.+)$/i)
+    if (readMatch) {
+      const fileName = readMatch[1].trim()
+      console.log(`[GhostControl] Reading file: ${fileName}`)
+      try {
+        const isAbsolute = fileName.includes('/') || fileName.includes('\\')
+        const targetPath = isAbsolute ? fileName : join(app.getPath('desktop'), fileName)
+        const content = fs.readFileSync(targetPath, 'utf-8')
+        return content.length > 2000 ? content.slice(0, 2000) + '\n...(Truncated)' : content
+      } catch (e: any) {
+        return `Failed to read file: ${e.message || e}`
+      }
+    }
+
+    // 6. LIST RUNNING APPS: "List running apps", "Show running applications"
+    if (/^(?:list|show)\s+(?:running\s+)?(?:apps?|applications?|processes?)$/i.test(lower)) {
+      console.log('[GhostControl] Listing running apps')
+      return new Promise((resolve) => {
+        const cmd = `powershell "Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | Select-Object -ExpandProperty ProcessName"`
+        exec(cmd, (err, stdout) => {
+          if (err) {
+            resolve('Failed to list running applications.')
+          } else {
+            const apps = [...new Set(stdout.split(/\r?\n/).map((a) => a.trim()).filter((a) => a))]
+            resolve(`Running applications:\n${apps.join('\n')}`)
+          }
+        })
+      })
+    }
+
+    // 7. RUN SHELL COMMAND: "Run dir", "Execute ls -la"
+    const runMatch = lower.match(/^(?:run|execute)\s+(.+)$/i)
+    if (runMatch) {
+      const command = runMatch[1].trim()
+      console.log(`[GhostControl] Running shell command: ${command}`)
+      return new Promise((resolve) => {
+        exec(command, { timeout: 10000 }, (err, stdout, stderr) => {
+          if (err) {
+            resolve(`Error: ${stderr || err.message}`)
+          } else {
+            const output = stdout.trim() || '(No output)'
+            resolve(output.length > 1500 ? output.slice(0, 1500) + '\n...(Truncated)' : output)
+          }
+        })
+      })
+    }
+
+    // 8. SCREENSHOT: "Take screenshot", "Screenshot"
+    if (/^(?:take\s+)?screenshot$/i.test(lower)) {
+      console.log('[GhostControl] Taking screenshot')
+      try {
+        const screenshot = await import('screenshot-desktop')
+        const filename = `MJ_Capture_${Date.now()}.png`
+        const savePath = join(app.getPath('pictures'), filename)
+        await screenshot.default({ filename: savePath })
+        return `Screenshot saved to: ${savePath}`
+      } catch (e: any) {
+        return `Failed to take screenshot: ${e.message || e}`
+      }
+    }
+
+    return null // Not a system command — proceed to AI
+  }
+
   // Core logic extracted for internal use
 export async function handleChatRequest(options: ChatRequestOptions): Promise<string> {
     const { text, images, provider, model } = parseChatRequest(options)
+
+    // ─── Try system command first (Ghost Control) ───
+    const systemResult = await tryHandleSystemCommand(text)
+    if (systemResult !== null) {
+      addMessage('user', text, 'system', undefined)
+      addMessage('assistant', systemResult, 'system', undefined)
+      return systemResult
+    }
+
     const providerStore = loadProviderConfig()
     let keys = loadKeysFromProviderStore(providerStore)
 
@@ -126,6 +279,84 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
 
     const resolveEndpoint = (providerName: keyof ProviderStore): string | undefined => {
       return providerStore[providerName]?.endpoint?.trim() || undefined
+    }
+
+    if (provider === 'gemini' && keys.gemini) {
+      const geminiKey = keys.gemini
+      try {
+        const ai = new GoogleGenAI({ apiKey: geminiKey })
+        let contents: any = `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`
+        if (images && images.length > 0) {
+          const parts: any[] = []
+          for (const img of images) {
+            const base64Data = img.replace(/^data:image\/\w+;base64,/, '')
+            parts.push({ inlineData: { data: base64Data, mimeType: 'image/jpeg' } })
+          }
+          parts.push({ text: contents })
+          contents = parts
+        }
+        const response = await retryAsync(
+          () => ai.models.generateContent({ model: resolveModel('gemini', 'gemini-2.5-flash'), contents }),
+          2,
+          500
+        )
+        const result = response.text || ''
+        addMessage('assistant', result, 'gemini', resolveModel('gemini', 'gemini-2.5-flash'))
+        return result
+      } catch (err: unknown) {
+        return providerError('Gemini', err)
+      }
+    }
+
+    if (provider === 'google' && keys.google) {
+      const googleKey = keys.google
+      try {
+        const ai = new GoogleGenAI({ apiKey: googleKey })
+        let contents: any = `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`
+        if (images && images.length > 0) {
+          const parts: any[] = []
+          for (const img of images) {
+            const base64Data = img.replace(/^data:image\/\w+;base64,/, '')
+            parts.push({ inlineData: { data: base64Data, mimeType: 'image/jpeg' } })
+          }
+          parts.push({ text: contents })
+          contents = parts
+        }
+        const response = await retryAsync(
+          () => ai.models.generateContent({ model: resolveModel('google', 'gemini-2.5-flash'), contents }),
+          2,
+          500
+        )
+        const result = response.text || ''
+        addMessage('assistant', result, 'google', resolveModel('google', 'gemini-2.5-flash'))
+        return result
+      } catch (err: unknown) {
+        return providerError('Google', err)
+      }
+    }
+
+    if (provider === 'groq' && keys.groq) {
+      const groqKey = keys.groq
+      try {
+        const groq = new Groq({ apiKey: groqKey })
+        const completion = await retryAsync(
+          () =>
+            groq.chat.completions.create({
+              messages: [
+                { role: 'system', content: 'You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional.' },
+                { role: 'user', content: text }
+              ],
+              model: resolveModel('groq', 'llama3-8b-8192')
+            }),
+          2,
+          500
+        )
+        const result = completion.choices[0]?.message?.content || ''
+        addMessage('assistant', result, 'groq', resolveModel('groq', 'llama3-8b-8192'))
+        return result
+      } catch (err: unknown) {
+        return providerError('Groq', err)
+      }
     }
 
     if (provider === 'openai' && keys.openai) {
@@ -222,13 +453,15 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
       
       const primaryProvider = providerStore.primary_agent?.provider;
       const primaryModel = providerStore.primary_agent?.model;
+      console.log(`[MJ] Auto-routing: primary_agent={provider:${primaryProvider}, model:${primaryModel}}`)
 
       // Define an execution function for a specific provider
       const tryProvider = async (pName: string, pModel?: string) => {
           if (!keys[pName as keyof ProviderStore]) return null;
           try {
-              if (pName === 'gemini') {
-                  const ai = new GoogleGenAI({ apiKey: keys.gemini! });
+              if (pName === 'gemini' || pName === 'google') {
+                  const apiKey = keys[pName as keyof ProviderStore] || keys.gemini;
+                  const ai = new GoogleGenAI({ apiKey: apiKey! });
                   let contents: any = `You are MJ, a highly advanced desktop AI assistant built by Sudip. Be helpful, concise, and professional. The user says: "${text}"`;
                   
                   if (images && images.length > 0) {
@@ -288,19 +521,24 @@ export async function handleChatRequest(options: ChatRequestOptions): Promise<st
 
       // 1. Try Primary Agent
       if (primaryProvider) {
+          console.log(`[MJ] Trying primary agent: ${primaryProvider} / ${primaryModel || 'default'}`)
           const res = await tryProvider(primaryProvider, primaryModel);
           if (res) {
+            console.log(`[MJ] Primary agent succeeded: ${primaryProvider}`)
             addMessage('assistant', res, primaryProvider, primaryModel)
             return res;
           }
+      } else {
+          console.log('[MJ] No primary_agent configured, skipping to fallbacks')
       }
 
       // 2. Try Fallbacks
-      const fallbackList = ['gemini', 'openai', 'groq', 'anthropic', 'deepseek'];
+      const fallbackList = ['gemini', 'google', 'openai', 'groq', 'anthropic', 'deepseek'];
       for (const p of fallbackList) {
           if (p === primaryProvider) continue; // Already tried
           const res = await tryProvider(p);
           if (res) {
+            console.log(`[MJ] Fallback succeeded: ${p}`)
             addMessage('assistant', res, p, undefined)
             return res;
           }
@@ -347,8 +585,9 @@ export default function registerChatHandler() {
     const tryStreamProvider = async (pName: string, pModel?: string) => {
         if (!keys[pName as keyof ProviderStore]) return false;
         try {
-            if (pName === 'gemini') {
-                const ai = new GoogleGenAI({ apiKey: keys.gemini! });
+            if (pName === 'gemini' || pName === 'google') {
+                const apiKey = keys[pName as keyof ProviderStore] || keys.gemini;
+                const ai = new GoogleGenAI({ apiKey: apiKey! });
                 const responseStream = await ai.models.generateContentStream({
                     model: pModel || 'gemini-2.5-flash',
                     contents: text
@@ -418,7 +657,7 @@ export default function registerChatHandler() {
                 streamSuccess = await tryStreamProvider(primaryProvider, primaryModel);
             }
             if (!streamSuccess) {
-                const fallbackList = ['gemini', 'openai', 'groq', 'anthropic', 'deepseek'];
+                const fallbackList = ['gemini', 'google', 'openai', 'groq', 'anthropic', 'deepseek'];
                 for (const p of fallbackList) {
                     if (p === primaryProvider || (provider && p === provider)) continue;
                     streamSuccess = await tryStreamProvider(p);
